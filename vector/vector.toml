@@ -1,0 +1,99 @@
+# Vector Configuration for abemon.es Observability
+# Collects logs from Docker containers and ships to Loki
+
+[api]
+enabled = true
+address = "0.0.0.0:8686"
+
+# ============================================
+# SOURCES - Where logs come from
+# ============================================
+
+# Docker container logs (Railway services)
+[sources.docker]
+type = "docker_logs"
+docker_host = "unix:///var/run/docker.sock"
+include_containers = []
+exclude_containers = ["vector"]
+
+# Internal Vector metrics
+[sources.vector_metrics]
+type = "internal_metrics"
+
+# ============================================
+# TRANSFORMS - Process and enrich logs
+# ============================================
+
+[transforms.parse_docker]
+type = "remap"
+inputs = ["docker"]
+source = '''
+# Extract container name as service label
+.service = .container_name
+
+# Parse timestamp
+.timestamp = now()
+
+# Try to parse JSON logs
+parsed, err = parse_json(.message)
+if err == null {
+  . = merge(., parsed)
+}
+
+# Add environment label
+.environment = "production"
+
+# Add source label
+.source = "railway"
+'''
+
+# Filter out noise
+[transforms.filter_noise]
+type = "filter"
+inputs = ["parse_docker"]
+condition = '''
+!starts_with(string!(.message), "GET /health") &&
+!starts_with(string!(.message), "GET /favicon")
+'''
+
+# ============================================
+# SINKS - Where logs go
+# ============================================
+
+# Send to Loki
+[sinks.loki]
+type = "loki"
+inputs = ["filter_noise"]
+endpoint = "http://loki:3100"
+encoding.codec = "json"
+
+[sinks.loki.labels]
+service = "{{ service }}"
+environment = "{{ environment }}"
+source = "{{ source }}"
+level = "{{ level }}"
+
+# Console output for debugging (disable in prod)
+[sinks.console]
+type = "console"
+inputs = ["filter_noise"]
+encoding.codec = "text"
+
+# ============================================
+# HOSTINGER LOGS (via exec/file source)
+# Uncomment when SSH access is configured
+# ============================================
+
+# [sources.hostinger_blue_mountain]
+# type = "exec"
+# command = ["ssh", "@blue-mountain", "tail", "-f", "/var/log/apache2/error.log"]
+# mode = "streaming"
+#
+# [transforms.parse_hostinger]
+# type = "remap"
+# inputs = ["hostinger_*"]
+# source = '''
+# .service = "blue-mountain"
+# .source = "hostinger"
+# .environment = "production"
+# '''

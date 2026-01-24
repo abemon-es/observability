@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # STATUS PAGE - status.abemon.es
+  # ============================================
+  uptime-kuma:
+    build: ./uptime-kuma
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - uptime-kuma-data:/app/data
+    environment:
+      - TZ=Europe/Madrid
+
+  # ============================================
+  # OBSERVABILITY - logs.abemon.es
+  # ============================================
+  grafana:
+    build: ./grafana
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_AUTH_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GF_AUTH_GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+    depends_on:
+      - loki
+      - prometheus
+
+  loki:
+    build: ./loki
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki-data:/loki
+    command: -config.file=/etc/loki/loki-config.yml
+
+  prometheus:
+    build: ./prometheus
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus-data:/prometheus
+
+  # ============================================
+  # LOG COLLECTION
+  # ============================================
+  vector:
+    build: ./vector
+    container_name: vector
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+volumes:
+  uptime-kuma-data:
+  grafana-data:
+  loki-data:
+  prometheus-data:

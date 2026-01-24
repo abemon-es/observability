@@ -1,0 +1,380 @@
+#!/usr/bin/env bash
+# obs-turbo - Unified observability CLI for abemon.es
+# Usage: obs-turbo <command> [options]
+
+set -euo pipefail
+
+# Configuration
+CONFIG_FILE="${HOME}/.obs_credentials.json"
+LOKI_URL="${LOKI_URL:-https://logs.abemon.es}"
+UPTIME_KUMA_URL="${UPTIME_KUMA_URL:-https://status.abemon.es}"
+GRAFANA_URL="${GRAFANA_URL:-https://logs.abemon.es}"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Service aliases
+declare -A SERVICES=(
+    ["abemon"]="abemon.es"
+    ["bm"]="bm.consulting"
+    ["codex"]="codex.abemon.es"
+    ["foodplan"]="foodplan.pro"
+    ["blue-mountain"]="blue-mountain.es"
+    ["concursal"]="concursal.consulting"
+    ["fundacion"]="dev.fundacionojusa.com"
+    ["logistics"]="logisticsexpress.es"
+)
+
+# Load credentials
+load_credentials() {
+    if [[ -f "$CONFIG_FILE" ]]; then
+        GRAFANA_TOKEN=$(jq -r '.grafana_token // empty' "$CONFIG_FILE" 2>/dev/null || echo "")
+        UPTIME_KUMA_TOKEN=$(jq -r '.uptime_kuma_token // empty' "$CONFIG_FILE" 2>/dev/null || echo "")
+    fi
+}
+
+# Print usage
+usage() {
+    cat << EOF
+${BLUE}obs-turbo${NC} - Unified observability CLI for abemon.es
+
+${YELLOW}USAGE:${NC}
+    obs-turbo <command> [service] [options]
+
+${YELLOW}COMMANDS:${NC}
+    ${GREEN}logs${NC} <service>     Query logs from Loki
+    ${GREEN}tail${NC} <service>     Stream logs in real-time
+    ${GREEN}status${NC} [service]   Check service status from Uptime Kuma
+    ${GREEN}incidents${NC}          List current incidents
+    ${GREEN}metrics${NC} <service>  Show service metrics
+    ${GREEN}services${NC}           List all monitored services
+    ${GREEN}config${NC}             Show/edit configuration
+
+${YELLOW}SERVICES:${NC}
+    abemon, bm, codex, foodplan, blue-mountain, concursal, fundacion, logistics
+    Or use 'all' for all services
+
+${YELLOW}OPTIONS:${NC}
+    --last <duration>    Time range (e.g., 1h, 24h, 7d) [default: 1h]
+    --error              Only show errors
+    --grep <pattern>     Filter by pattern
+    --format <type>      Output format: text, json [default: text]
+    --limit <n>          Max number of results [default: 100]
+
+${YELLOW}EXAMPLES:${NC}
+    obs-turbo logs abemon --last 1h
+    obs-turbo logs abemon --error --last 24h
+    obs-turbo logs all --grep "500" --last 6h
+    obs-turbo tail abemon
+    obs-turbo status
+    obs-turbo incidents
+
+EOF
+}
+
+# Resolve service name
+resolve_service() {
+    local service="$1"
+    if [[ "$service" == "all" ]]; then
+        echo ""
+    elif [[ -n "${SERVICES[$service]:-}" ]]; then
+        echo "${SERVICES[$service]}"
+    else
+        echo "$service"
+    fi
+}
+
+# Query logs using logcli
+cmd_logs() {
+    local service="${1:-all}"
+    shift || true
+
+    local duration="1h"
+    local only_errors=false
+    local grep_pattern=""
+    local format="text"
+    local limit=100
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --last)
+                duration="$2"
+                shift 2
+                ;;
+            --error)
+                only_errors=true
+                shift
+                ;;
+            --grep)
+                grep_pattern="$2"
+                shift 2
+                ;;
+            --format)
+                format="$2"
+                shift 2
+                ;;
+            --limit)
+                limit="$2"
+                shift 2
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
+    local resolved_service=$(resolve_service "$service")
+    local query=""
+
+    if [[ -n "$resolved_service" ]]; then
+        query="{service=\"$resolved_service\"}"
+    else
+        query="{source=\"railway\"}"
+    fi
+
+    if [[ "$only_errors" == true ]]; then
+        query="$query |~ \`(?i)(error|fail|exception|critical)\`"
+    fi
+
+    if [[ -n "$grep_pattern" ]]; then
+        query="$query |~ \`$grep_pattern\`"
+    fi
+
+    echo -e "${BLUE}Querying logs...${NC}"
+    echo -e "${YELLOW}Query:${NC} $query"
+    echo -e "${YELLOW}Range:${NC} last $duration"
+    echo ""
+
+    if command -v logcli &> /dev/null; then
+        logcli query \
+            --addr="$LOKI_URL" \
+            --since="$duration" \
+            --limit="$limit" \
+            --output="$format" \
+            "$query"
+    else
+        echo -e "${RED}Error: logcli not installed${NC}"
+        echo "Install with: brew install loki"
+        exit 1
+    fi
+}
+
+# Stream logs in real-time
+cmd_tail() {
+    local service="${1:-all}"
+    shift || true
+
+    local filter=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --filter)
+                filter="$2"
+                shift 2
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
+    local resolved_service=$(resolve_service "$service")
+    local query=""
+
+    if [[ -n "$resolved_service" ]]; then
+        query="{service=\"$resolved_service\"}"
+    else
+        query="{source=\"railway\"}"
+    fi
+
+    if [[ -n "$filter" ]]; then
+        query="$query |~ \`(?i)$filter\`"
+    fi
+
+    echo -e "${BLUE}Streaming logs...${NC} (Ctrl+C to stop)"
+    echo -e "${YELLOW}Query:${NC} $query"
+    echo ""
+
+    if command -v logcli &> /dev/null; then
+        logcli query \
+            --addr="$LOKI_URL" \
+            --tail \
+            --output=default \
+            "$query"
+    else
+        echo -e "${RED}Error: logcli not installed${NC}"
+        echo "Install with: brew install loki"
+        exit 1
+    fi
+}
+
+# Check status from Uptime Kuma
+cmd_status() {
+    local service="${1:-}"
+
+    echo -e "${BLUE}Checking service status...${NC}"
+    echo ""
+
+    # Use Uptime Kuma API
+    local api_url="$UPTIME_KUMA_URL/api/status-page/main"
+
+    if command -v curl &> /dev/null; then
+        local response=$(curl -s "$api_url" 2>/dev/null || echo '{"error": "Failed to fetch"}')
+
+        if echo "$response" | jq -e '.error' &>/dev/null; then
+            echo -e "${YELLOW}Unable to fetch from Uptime Kuma API${NC}"
+            echo "Falling back to direct HTTP checks..."
+            echo ""
+
+            # Direct HTTP checks
+            for alias in "${!SERVICES[@]}"; do
+                local url="${SERVICES[$alias]}"
+                if [[ -z "$service" || "$alias" == "$service" ]]; then
+                    local status_code=$(curl -s -o /dev/null -w "%{http_code}" "https://$url" --max-time 5 2>/dev/null || echo "000")
+                    if [[ "$status_code" == "200" ]]; then
+                        echo -e "${GREEN}[UP]${NC} $alias ($url) - HTTP $status_code"
+                    else
+                        echo -e "${RED}[DOWN]${NC} $alias ($url) - HTTP $status_code"
+                    fi
+                fi
+            done
+        else
+            echo "$response" | jq -r '.publicGroupList[]?.monitorList[]? | "\(.name): \(.status)"' 2>/dev/null || echo "No monitors found"
+        fi
+    else
+        echo -e "${RED}Error: curl not installed${NC}"
+        exit 1
+    fi
+}
+
+# List incidents
+cmd_incidents() {
+    echo -e "${BLUE}Checking for incidents...${NC}"
+    echo ""
+
+    local api_url="$UPTIME_KUMA_URL/api/status-page/main"
+
+    if command -v curl &> /dev/null; then
+        local response=$(curl -s "$api_url" 2>/dev/null || echo '{}')
+        local incidents=$(echo "$response" | jq -r '.incident // empty' 2>/dev/null)
+
+        if [[ -n "$incidents" && "$incidents" != "null" ]]; then
+            echo -e "${RED}Active Incidents:${NC}"
+            echo "$incidents" | jq -r '.title // "Unknown incident"'
+        else
+            echo -e "${GREEN}No active incidents${NC}"
+        fi
+    else
+        echo -e "${RED}Error: curl not installed${NC}"
+        exit 1
+    fi
+}
+
+# Show metrics
+cmd_metrics() {
+    local service="${1:-all}"
+    local format="${2:-text}"
+
+    echo -e "${BLUE}Fetching metrics...${NC}"
+    echo ""
+
+    # Query Prometheus via Grafana API or directly
+    local resolved_service=$(resolve_service "$service")
+
+    if [[ -n "$GRAFANA_TOKEN" ]]; then
+        # Use Grafana API
+        curl -s -H "Authorization: Bearer $GRAFANA_TOKEN" \
+            "$GRAFANA_URL/api/datasources/proxy/1/api/v1/query?query=up" 2>/dev/null | \
+            jq -r '.data.result[] | "\(.metric.job): \(.value[1])"' 2>/dev/null || \
+            echo "Failed to fetch metrics"
+    else
+        echo -e "${YELLOW}Grafana token not configured${NC}"
+        echo "Add grafana_token to ~/.obs_credentials.json"
+    fi
+}
+
+# List services
+cmd_services() {
+    echo -e "${BLUE}Monitored Services:${NC}"
+    echo ""
+
+    echo -e "${YELLOW}Railway:${NC}"
+    for alias in abemon bm codex foodplan; do
+        echo "  $alias -> ${SERVICES[$alias]}"
+    done
+
+    echo ""
+    echo -e "${YELLOW}Hostinger:${NC}"
+    for alias in blue-mountain concursal fundacion logistics; do
+        echo "  $alias -> ${SERVICES[$alias]}"
+    done
+}
+
+# Show/edit config
+cmd_config() {
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        echo -e "${YELLOW}Creating config file...${NC}"
+        cat > "$CONFIG_FILE" << 'EOF'
+{
+  "loki_url": "https://logs.abemon.es",
+  "uptime_kuma_url": "https://status.abemon.es",
+  "grafana_url": "https://logs.abemon.es",
+  "grafana_token": "",
+  "uptime_kuma_token": ""
+}
+EOF
+        echo "Created: $CONFIG_FILE"
+    fi
+
+    echo -e "${BLUE}Configuration:${NC}"
+    cat "$CONFIG_FILE" | jq .
+    echo ""
+    echo "Edit with: ${YELLOW}\$EDITOR $CONFIG_FILE${NC}"
+}
+
+# Main
+main() {
+    load_credentials
+
+    local command="${1:-help}"
+    shift || true
+
+    case "$command" in
+        logs)
+            cmd_logs "$@"
+            ;;
+        tail)
+            cmd_tail "$@"
+            ;;
+        status)
+            cmd_status "$@"
+            ;;
+        incidents)
+            cmd_incidents
+            ;;
+        metrics)
+            cmd_metrics "$@"
+            ;;
+        services)
+            cmd_services
+            ;;
+        config)
+            cmd_config
+            ;;
+        help|--help|-h)
+            usage
+            ;;
+        *)
+            echo -e "${RED}Unknown command: $command${NC}"
+            echo ""
+            usage
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

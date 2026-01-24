@@ -1,0 +1,33 @@
+# Secrets
+*.env
+.env*
+!.env.example
+credentials*.json
+secrets/
+
+# Volumes and data
+data/
+volumes/
+*.db
+*.sqlite
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node
+node_modules/
+
+# Backups
+*.bak
+*.backup

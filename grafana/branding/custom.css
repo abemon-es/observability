@@ -1,0 +1,59 @@
+/* abemon.es Custom Theme for Grafana */
+
+:root {
+  --abemon-primary: #1a1a2e;
+  --abemon-secondary: #16213e;
+  --abemon-accent: #0f3460;
+  --abemon-highlight: #e94560;
+  --abemon-text: #ffffff;
+  --abemon-text-muted: #a0a0a0;
+}
+
+/* Override Grafana primary colors */
+.css-1qw6xpw,
+.css-1n7hytq {
+  background: var(--abemon-primary) !important;
+}
+
+/* Sidebar */
+.main-view .sidemenu {
+  background: var(--abemon-secondary) !important;
+}
+
+/* Top navbar */
+.navbar {
+  background: var(--abemon-primary) !important;
+  border-bottom: 1px solid var(--abemon-accent) !important;
+}
+
+/* Buttons */
+button.btn-primary,
+.btn-primary {
+  background: var(--abemon-highlight) !important;
+  border-color: var(--abemon-highlight) !important;
+}
+
+button.btn-primary:hover,
+.btn-primary:hover {
+  background: #d63c55 !important;
+  border-color: #d63c55 !important;
+}
+
+/* Links */
+a {
+  color: var(--abemon-highlight);
+}
+
+a:hover {
+  color: #ff6b7a;
+}
+
+/* Panel headers */
+.panel-title-container {
+  background: var(--abemon-secondary) !important;
+}
+
+/* Dashboard background */
+.dashboard-container {
+  background: var(--abemon-primary) !important;
+}
