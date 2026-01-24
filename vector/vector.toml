@@ -1,20 +1,16 @@
 # Vector Configuration for abemon.es Observability
 # Receives logs from Railway log drains and ships to Loki
 
-# Health check API
-[api]
-enabled = true
-address = "0.0.0.0:8686"
-playground = false
-
 # ============================================
 # SOURCES - Railway Log Drain HTTP endpoint
 # ============================================
 
+# HTTP server to receive logs (uses PORT env var from Railway)
 [sources.railway_logs]
 type = "http_server"
 address = "0.0.0.0:8080"
 decoding.codec = "json"
+strict_path = false
 
 # Internal Vector metrics
 [sources.vector_metrics]
@@ -32,15 +28,8 @@ source = '''
 .environment = .environment ?? "production"
 .project = .project_name ?? .projectName ?? .project ?? "unknown"
 .timestamp = .timestamp ?? now()
-.msg = .message ?? .msg ?? .log ?? to_string(.)
+.msg = .message ?? .msg ?? .log ?? encode_json(.)
 .level = .level ?? .severity ?? "info"
-
-if contains(to_string(.msg) ?? "", "error") || contains(to_string(.msg) ?? "", "ERROR") {
-  .level = "error"
-} else if contains(to_string(.msg) ?? "", "warn") || contains(to_string(.msg) ?? "", "WARN") {
-  .level = "warn"
-}
-
 .source = "railway"
 '''
 
@@ -51,7 +40,7 @@ if contains(to_string(.msg) ?? "", "error") || contains(to_string(.msg) ?? "", "
 [sinks.loki]
 type = "loki"
 inputs = ["parse_railway"]
-endpoint = "${LOKI_URL}"
+endpoint = "${LOKI_URL:-http://localhost:3100}"
 encoding.codec = "json"
 
 [sinks.loki.labels]
@@ -64,4 +53,4 @@ source = "{{ source }}"
 [sinks.console]
 type = "console"
 inputs = ["parse_railway"]
-encoding.codec = "text"
+encoding.codec = "json"
