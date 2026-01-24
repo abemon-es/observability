@@ -15,6 +15,20 @@ RAILWAY_TOKEN = os.environ.get("RAILWAY_API_TOKEN", "")
 PORT = int(os.environ.get("PORT", 9090))
 SCRAPE_INTERVAL = int(os.environ.get("SCRAPE_INTERVAL", 60))
 
+# Projects and environments (same as locomotive)
+PROJECTS = [
+    {"name": "abemon.es", "env": "b1901a72-177e-44fc-a676-df0337dd33be"},
+    {"name": "BM Consulting", "env": "39710a9b-5818-4f1b-8aa5-5da54a821e66"},
+    {"name": "foodplan.pro", "env": "1d8b9c3d-375c-4562-923f-aea9f2922593"},
+    {"name": "codex.abemon.es", "env": "afb301e5-f182-4cfa-9e6e-e32966f70ec0"},
+    {"name": "blue-mountain.es", "env": "a28d09c7-8d40-44af-98e2-dfca8417ae9e"},
+    {"name": "Logistics Express", "env": "8c0cf65a-6b07-41a7-a8cb-bee88d0eb03b"},
+    {"name": "app.logisticsexpress.es", "env": "ace99da7-959d-4d02-a258-d39259e869c0"},
+    {"name": "trafico-dashboard", "env": "be69a746-d09a-4a4b-b9ca-3fd912718421"},
+    {"name": "z.logisticsexpress.es", "env": "ccc1e76b-0bb9-450a-bc25-2209990a6449"},
+    {"name": "observability", "env": "9038a29f-efed-4d61-9b6d-2f17c74cc8f1"},
+]
+
 # Prometheus metrics
 cpu_usage = Gauge('railway_service_cpu_usage', 'CPU cores used', ['project_name', 'service_name', 'environment_name'])
 memory_usage_gb = Gauge('railway_service_memory_usage_gb', 'Memory usage in GB', ['project_name', 'service_name', 'environment_name'])
@@ -23,102 +37,16 @@ memory_utilization = Gauge('railway_service_memory_utilization', 'Memory utiliza
 network_rx_gb = Gauge('railway_service_network_rx_gb_total', 'Network received in GB', ['project_name', 'service_name', 'environment_name'])
 network_tx_gb = Gauge('railway_service_network_tx_gb_total', 'Network transmitted in GB', ['project_name', 'service_name', 'environment_name'])
 service_up = Gauge('railway_service_up', 'Service is running (1) or not (0)', ['project_name', 'service_name', 'environment_name'])
+services_total = Gauge('railway_services_total', 'Total number of services', ['project_name'])
 exporter_info = Info('railway_exporter', 'Railway Prometheus Exporter info')
+scrape_duration = Gauge('railway_exporter_scrape_duration_seconds', 'Time taken to scrape metrics')
+scrape_errors = Gauge('railway_exporter_scrape_errors_total', 'Number of scrape errors')
 
-# GraphQL Queries
-PROJECTS_QUERY = """
-query {
-  me {
-    workspaces {
-      edges {
-        node {
-          id
-          name
-          projects {
-            edges {
-              node {
-                id
-                name
-                environments {
-                  edges {
-                    node {
-                      id
-                      name
-                    }
-                  }
-                }
-                services {
-                  edges {
-                    node {
-                      id
-                      name
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-"""
-
-METRICS_QUERY = """
-query ServiceMetrics($serviceId: String!, $envId: String!) {
-  metrics(
-    serviceId: $serviceId
-    environmentId: $envId
-    measurements: [CPU_USAGE, MEMORY_USAGE_GB, NETWORK_RX_GB, NETWORK_TX_GB]
-    startDate: "%s"
-  ) {
-    measurements
-    values
-    tags
-  }
-
-  service(id: $serviceId) {
-    id
-    name
-    serviceInstances(environmentId: $envId) {
-      edges {
-        node {
-          healthStatus
-        }
-      }
-    }
-  }
-}
-"""
-
-DEPLOYMENT_QUERY = """
-query DeploymentStatus($serviceId: String!, $envId: String!) {
-  deployments(
-    first: 1
-    input: {
-      serviceId: $serviceId
-      environmentId: $envId
-    }
-  ) {
-    edges {
-      node {
-        id
-        status
-        staticUrl
-      }
-    }
-  }
-}
-"""
+headers = {"Authorization": f"Bearer {RAILWAY_TOKEN}", "Content-Type": "application/json"}
 
 
 def graphql_request(query, variables=None):
     """Execute GraphQL request to Railway API."""
-    headers = {
-        "Authorization": f"Bearer {RAILWAY_TOKEN}",
-        "Content-Type": "application/json"
-    }
     payload = {"query": query}
     if variables:
         payload["variables"] = variables
@@ -136,125 +64,152 @@ def graphql_request(query, variables=None):
         return None
 
 
-def get_projects_and_services():
-    """Get all projects, services, and environments."""
-    data = graphql_request(PROJECTS_QUERY)
+def get_services(env_id):
+    """Get all services in an environment."""
+    query = '''query($envId: String!) {
+        environment(id: $envId) {
+            serviceInstances {
+                edges {
+                    node {
+                        serviceId
+                        serviceName
+                        latestDeployment { id status }
+                    }
+                }
+            }
+        }
+    }'''
+
+    data = graphql_request(query, {"envId": env_id})
     if not data:
         return []
 
-    result = []
     try:
-        for ws_edge in data.get("me", {}).get("workspaces", {}).get("edges", []):
-            workspace = ws_edge.get("node", {})
-            for proj_edge in workspace.get("projects", {}).get("edges", []):
-                project = proj_edge.get("node", {})
-                project_id = project.get("id")
-                project_name = project.get("name")
-
-                environments = []
-                for env_edge in project.get("environments", {}).get("edges", []):
-                    env = env_edge.get("node", {})
-                    environments.append({"id": env.get("id"), "name": env.get("name")})
-
-                for svc_edge in project.get("services", {}).get("edges", []):
-                    service = svc_edge.get("node", {})
-                    result.append({
-                        "project_id": project_id,
-                        "project_name": project_name,
-                        "service_id": service.get("id"),
-                        "service_name": service.get("name"),
-                        "environments": environments
-                    })
+        edges = data.get("environment", {}).get("serviceInstances", {}).get("edges", [])
+        return [
+            {
+                "service_id": e["node"]["serviceId"],
+                "service_name": e["node"]["serviceName"],
+                "deployment_id": e["node"]["latestDeployment"]["id"] if e["node"]["latestDeployment"] else None,
+                "status": e["node"]["latestDeployment"]["status"] if e["node"]["latestDeployment"] else "UNKNOWN"
+            }
+            for e in edges
+        ]
     except Exception as e:
-        print(f"Error parsing projects: {e}")
+        print(f"Error parsing services: {e}")
+        return []
 
-    return result
+
+def get_metrics(service_id, env_id):
+    """Get metrics for a service."""
+    # Try to get usage metrics
+    query = '''query($serviceId: String!, $envId: String!) {
+        service(id: $serviceId) {
+            id
+            name
+        }
+        resourceUsage: metrics(
+            serviceId: $serviceId
+            environmentId: $envId
+            measurements: [CPU_USAGE, MEMORY_USAGE_GB, NETWORK_RX_GB, NETWORK_TX_GB]
+            startDate: "%s"
+            sampleRateSeconds: 60
+        ) {
+            measurements
+            values
+        }
+    }''' % time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 300))
+
+    data = graphql_request(query, {"serviceId": service_id, "envId": env_id})
+
+    metrics = {
+        "cpu_usage": 0,
+        "memory_usage_gb": 0,
+        "network_rx_gb": 0,
+        "network_tx_gb": 0
+    }
+
+    if not data:
+        return metrics
+
+    try:
+        resource_data = data.get("resourceUsage", [])
+        if isinstance(resource_data, list):
+            for item in resource_data:
+                measurements = item.get("measurements", [])
+                values = item.get("values", [])
+
+                for i, m in enumerate(measurements):
+                    if values and len(values) > i and values[i]:
+                        # Get latest value
+                        val = values[i][-1] if isinstance(values[i], list) else values[i]
+                        if m == "CPU_USAGE":
+                            metrics["cpu_usage"] = float(val) if val else 0
+                        elif m == "MEMORY_USAGE_GB":
+                            metrics["memory_usage_gb"] = float(val) if val else 0
+                        elif m == "NETWORK_RX_GB":
+                            metrics["network_rx_gb"] = float(val) if val else 0
+                        elif m == "NETWORK_TX_GB":
+                            metrics["network_tx_gb"] = float(val) if val else 0
+    except Exception as e:
+        print(f"Error parsing metrics for {service_id}: {e}")
+
+    return metrics
 
 
 def collect_metrics():
-    """Collect metrics from all services."""
-    print("Collecting metrics...")
-    services = get_projects_and_services()
+    """Collect metrics from all configured projects."""
+    start_time = time.time()
+    errors = 0
 
-    if not services:
-        print("No services found")
-        return
+    print(f"Collecting metrics from {len(PROJECTS)} projects...")
 
-    print(f"Found {len(services)} services")
+    for project in PROJECTS:
+        project_name = project["name"]
+        env_id = project["env"]
+        env_name = "production"
 
-    # Use timestamp from 5 minutes ago for metrics query
-    start_date = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 300))
+        services = get_services(env_id)
 
-    for svc in services:
-        project_name = svc["project_name"]
-        service_name = svc["service_name"]
-        service_id = svc["service_id"]
+        if not services:
+            errors += 1
+            services_total.labels(project_name=project_name).set(0)
+            continue
 
-        for env in svc["environments"]:
-            env_id = env["id"]
-            env_name = env["name"]
+        services_total.labels(project_name=project_name).set(len(services))
+        print(f"  {project_name}: {len(services)} services")
+
+        for svc in services:
+            service_name = svc["service_name"]
+            service_id = svc["service_id"]
+            status = svc["status"]
 
             labels = [project_name, service_name, env_name]
 
-            # Get deployment status
-            deploy_data = graphql_request(DEPLOYMENT_QUERY, {
-                "serviceId": service_id,
-                "envId": env_id
-            })
-
-            is_up = 0
-            if deploy_data:
-                deployments = deploy_data.get("deployments", {}).get("edges", [])
-                if deployments:
-                    status = deployments[0].get("node", {}).get("status", "")
-                    is_up = 1 if status == "SUCCESS" else 0
-
+            # Set service status
+            is_up = 1 if status == "SUCCESS" else 0
             service_up.labels(*labels).set(is_up)
 
             # Get resource metrics
-            query = METRICS_QUERY % start_date
-            metrics_data = graphql_request(query, {
-                "serviceId": service_id,
-                "envId": env_id
-            })
+            metrics = get_metrics(service_id, env_id)
 
-            if not metrics_data or not metrics_data.get("metrics"):
-                # Set zero values if no metrics
-                cpu_usage.labels(*labels).set(0)
-                memory_usage_gb.labels(*labels).set(0)
-                cpu_utilization.labels(*labels).set(0)
-                memory_utilization.labels(*labels).set(0)
-                network_rx_gb.labels(*labels).set(0)
-                network_tx_gb.labels(*labels).set(0)
-                continue
+            cpu_val = metrics["cpu_usage"]
+            mem_val = metrics["memory_usage_gb"]
 
-            # Parse metrics
-            for metric in metrics_data.get("metrics", []):
-                measurements = metric.get("measurements", [])
-                values = metric.get("values", [])
+            cpu_usage.labels(*labels).set(cpu_val)
+            memory_usage_gb.labels(*labels).set(mem_val)
 
-                # Get latest value (last in array)
-                for i, measurement in enumerate(measurements):
-                    if values and len(values) > i:
-                        latest_values = values[i] if isinstance(values[i], list) else [values[i]]
-                        value = latest_values[-1] if latest_values else 0
-                    else:
-                        value = 0
+            # Calculate utilization based on 2 vCPU / 2 GB limits
+            cpu_utilization.labels(*labels).set(min(cpu_val / 2.0, 1.0) if cpu_val > 0 else 0)
+            memory_utilization.labels(*labels).set(min(mem_val / 2.0, 1.0) if mem_val > 0 else 0)
 
-                    if measurement == "CPU_USAGE":
-                        cpu_usage.labels(*labels).set(value)
-                        # Assume 2 vCPU limit for utilization calculation
-                        cpu_utilization.labels(*labels).set(min(value / 2.0, 1.0))
-                    elif measurement == "MEMORY_USAGE_GB":
-                        memory_usage_gb.labels(*labels).set(value)
-                        # Assume 2 GB limit for utilization calculation
-                        memory_utilization.labels(*labels).set(min(value / 2.0, 1.0))
-                    elif measurement == "NETWORK_RX_GB":
-                        network_rx_gb.labels(*labels).set(value)
-                    elif measurement == "NETWORK_TX_GB":
-                        network_tx_gb.labels(*labels).set(value)
+            network_rx_gb.labels(*labels).set(metrics["network_rx_gb"])
+            network_tx_gb.labels(*labels).set(metrics["network_tx_gb"])
 
-    print("Metrics collection complete")
+    duration = time.time() - start_time
+    scrape_duration.set(duration)
+    scrape_errors.set(errors)
+    print(f"Collection complete in {duration:.2f}s with {errors} errors")
 
 
 def main():
@@ -264,9 +219,12 @@ def main():
         return
 
     print(f"Starting Railway Prometheus Exporter on port {PORT}")
+    print(f"Monitoring {len(PROJECTS)} projects")
+
     exporter_info.info({
-        'version': '1.0.0',
-        'scrape_interval': str(SCRAPE_INTERVAL)
+        'version': '1.1.0',
+        'scrape_interval': str(SCRAPE_INTERVAL),
+        'projects_count': str(len(PROJECTS))
     })
 
     # Start HTTP server for Prometheus
