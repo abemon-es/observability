@@ -35,7 +35,8 @@ scrape_configs:
   - job_name: 'railway-metrics'
     scrape_interval: 60s
     static_configs:
-      - targets: ['railway-exporter:9090']
+      # Use Railway internal DNS for the exporter
+      - targets: ['railway-exporter.railway.internal:9090']
     metric_relabel_configs:
       # Keep only essential metrics to reduce storage
       - source_labels: [__name__]
