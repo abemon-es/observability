@@ -1,14 +1,20 @@
 # Vector Configuration for abemon.es Observability
 # Receives logs from Railway log drains and ships to Loki
 
+# API provides health endpoint at /health (responds to GET)
+[api]
+enabled = true
+address = "0.0.0.0:8080"
+playground = false
+
 # ============================================
 # SOURCES - Railway Log Drain HTTP endpoint
 # ============================================
 
-# HTTP server to receive logs (uses PORT env var from Railway)
+# HTTP server to receive logs on different port
 [sources.railway_logs]
 type = "http_server"
-address = "0.0.0.0:8080"
+address = "0.0.0.0:9000"
 decoding.codec = "json"
 strict_path = false
 
