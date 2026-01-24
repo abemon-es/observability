@@ -1,8 +1,9 @@
 {
-  "title": "Railway Overview",
+  "title": "Errores y Alertas",
   "tags": [
     "railway",
-    "overview"
+    "errors",
+    "alerts"
   ],
   "timezone": "browser",
   "schemaVersion": 38,
@@ -11,79 +12,16 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Proyectos Activos",
+      "title": "Errores (24h)",
       "gridPos": {
         "h": 4,
-        "w": 6,
+        "w": 8,
         "x": 0,
         "y": 0
       },
       "targets": [
         {
-          "expr": "count(count by (project) (count_over_time({project=~\".+\"}[5m])))",
-          "refId": "A"
-        }
-      ],
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      }
-    },
-    {
-      "id": 2,
-      "type": "stat",
-      "title": "Servicios Activos",
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 0
-      },
-      "targets": [
-        {
-          "expr": "count(count by (service) (count_over_time({service=~\".+\"}[5m])))",
-          "refId": "A"
-        }
-      ],
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      }
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "Logs (1h)",
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 0
-      },
-      "targets": [
-        {
-          "expr": "sum(count_over_time({project=~\".+\"}[1h]))",
-          "refId": "A"
-        }
-      ],
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      }
-    },
-    {
-      "id": 4,
-      "type": "stat",
-      "title": "Errores (1h)",
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 0
-      },
-      "targets": [
-        {
-          "expr": "sum(count_over_time({project=~\".+\"} |~ \"(?i)error|exception|fatal\"[1h]))",
+          "expr": "sum(count_over_time({project=~\".+\"} |~ \"(?i)error\"[24h]))",
           "refId": "A"
         }
       ],
@@ -101,42 +39,19 @@
       }
     },
     {
-      "id": 5,
-      "type": "timeseries",
-      "title": "Logs por Proyecto",
+      "id": 2,
+      "type": "stat",
+      "title": "Excepciones (24h)",
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 4
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 0
       },
       "targets": [
         {
-          "expr": "sum by (project) (count_over_time({project=~\".+\"}[1m]))",
-          "refId": "A",
-          "legendFormat": "{{project}}"
-        }
-      ],
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      }
-    },
-    {
-      "id": 6,
-      "type": "timeseries",
-      "title": "Errores por Proyecto",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 4
-      },
-      "targets": [
-        {
-          "expr": "sum by (project) (count_over_time({project=~\".+\"} |~ \"(?i)error|exception\"[1m]))",
-          "refId": "A",
-          "legendFormat": "{{project}}"
+          "expr": "sum(count_over_time({project=~\".+\"} |~ \"(?i)exception\"[24h]))",
+          "refId": "A"
         }
       ],
       "datasource": {
@@ -146,24 +61,98 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "fixed",
+            "fixedColor": "orange"
           }
         }
       }
     },
     {
-      "id": 7,
-      "type": "logs",
-      "title": "\u00daltimos Logs",
+      "id": 3,
+      "type": "stat",
+      "title": "Fatales (24h)",
       "gridPos": {
-        "h": 10,
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({project=~\".+\"} |~ \"(?i)fatal|critical\"[24h]))",
+          "refId": "A"
+        }
+      ],
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "dark-red"
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Errores por Proyecto (\u00faltimas 6h)",
+      "gridPos": {
+        "h": 8,
         "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "targets": [
+        {
+          "expr": "sum by (project) (count_over_time({project=~\".+\"} |~ \"(?i)error|exception\"[5m]))",
+          "refId": "A",
+          "legendFormat": "{{project}}"
+        }
+      ],
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Top Servicios con Errores",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
         "x": 0,
         "y": 12
       },
       "targets": [
         {
-          "expr": "{project=~\".+\"}",
+          "expr": "topk(10, sum by (project, service) (count_over_time({project=~\".+\"} |~ \"(?i)error\"[1h])))",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      }
+    },
+    {
+      "id": 6,
+      "type": "logs",
+      "title": "\u00daltimos Errores",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "targets": [
+        {
+          "expr": "{project=~\".+\"} |~ \"(?i)error|exception|fatal\"",
           "refId": "A"
         }
       ],
@@ -178,5 +167,5 @@
       }
     }
   ],
-  "uid": "overview"
+  "uid": "errors"
 }
