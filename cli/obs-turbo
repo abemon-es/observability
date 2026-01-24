@@ -1,458 +1,525 @@
-#!/usr/bin/env zsh
-# obs-turbo - Unified observability CLI for abemon.es
-# Usage: obs-turbo <command> [options]
+#!/usr/bin/env python3
+"""
+obs-turbo - Unified observability CLI for abemon.es
 
-set -eo pipefail
+Quick access to Grafana/Loki logs and Uptime Kuma status for Claude Code agents.
 
-# Configuration
-CONFIG_FILE="${HOME}/.obs_credentials.json"
-GRAFANA_TOKEN=""
-UPTIME_KUMA_TOKEN=""
-LOKI_URL=""
-UPTIME_KUMA_URL=""
-GRAFANA_URL=""
+Usage:
+    obs-turbo logs <service> [--last DURATION] [--grep PATTERN] [--error] [--json]
+    obs-turbo tail <service> [--filter PATTERN]
+    obs-turbo status [service]
+    obs-turbo services
+    obs-turbo labels
+    obs-turbo query <logql>
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+Examples:
+    obs-turbo logs abemon.es --last 1h
+    obs-turbo logs abemon.es --error --last 24h
+    obs-turbo logs all --grep "500" --last 6h
+    obs-turbo tail bm.consulting --filter error
+    obs-turbo status
+    obs-turbo status abemon.es
+    obs-turbo services
 
-# Service aliases (zsh associative array)
-typeset -A SERVICES
-SERVICES=(
-    abemon "abemon.es"
-    bm "bm.consulting"
-    codex "codex.abemon.es"
-    foodplan "foodplan.pro"
-    blue-mountain "blue-mountain.es"
-    concursal "concursal.consulting"
-    fundacion "dev.fundacionojusa.com"
-    logistics "logisticsexpress.es"
-)
+Duration formats: 5m, 1h, 24h, 7d (minutes, hours, days)
+"""
 
-# Load credentials
-load_credentials() {
-    if [[ -f "$CONFIG_FILE" ]]; then
-        GRAFANA_TOKEN=$(jq -r '.grafana_token // empty' "$CONFIG_FILE" 2>/dev/null || echo "")
-        UPTIME_KUMA_TOKEN=$(jq -r '.uptime_kuma_token // empty' "$CONFIG_FILE" 2>/dev/null || echo "")
-        LOKI_URL=$(jq -r '.loki_url // empty' "$CONFIG_FILE" 2>/dev/null || echo "")
-        UPTIME_KUMA_URL=$(jq -r '.uptime_kuma_url // empty' "$CONFIG_FILE" 2>/dev/null || echo "")
-        GRAFANA_URL=$(jq -r '.grafana_url // empty' "$CONFIG_FILE" 2>/dev/null || echo "")
-    fi
+import sys
+import os
+import json
+import argparse
+import requests
+import re
+from datetime import datetime
+from typing import Dict, List, Optional, Any
 
-    # Set defaults if not configured
-    LOKI_URL="${LOKI_URL:-https://logs.abemon.es}"
-    UPTIME_KUMA_URL="${UPTIME_KUMA_URL:-https://status.abemon.es}"
-    GRAFANA_URL="${GRAFANA_URL:-https://logs.abemon.es}"
+# Config
+CREDS_FILE = os.path.expanduser("~/.obs_credentials.json")
+
+# Service aliases (friendly name -> Loki project label)
+SERVICE_ALIASES = {
+    "abemon": "abemon.es",
+    "bm": "BM Consulting",
+    "bm.consulting": "BM Consulting",
+    "codex": "codex.abemon.es",
+    "foodplan": "foodplan.pro",
+    "logistics": "Logistics Express",
+    "blue-mountain": "blue-mountain.es",
+    "trafico": "trafico-dashboard",
+    "app-logistics": "app.logisticsexpress.es",
+    "z-logistics": "z.logisticsexpress.es",
 }
 
-# Print usage
-usage() {
-    echo -e "${BLUE}obs-turbo${NC} - Unified observability CLI for abemon.es"
-    echo ""
-    echo -e "${YELLOW}USAGE:${NC}"
-    echo "    obs-turbo <command> [service] [options]"
-    echo ""
-    echo -e "${YELLOW}COMMANDS:${NC}"
-    echo -e "    ${GREEN}logs${NC} <service>     Query logs from Loki"
-    echo -e "    ${GREEN}tail${NC} <service>     Stream logs in real-time"
-    echo -e "    ${GREEN}status${NC} [service]   Check service status from Uptime Kuma"
-    echo -e "    ${GREEN}incidents${NC}          List current incidents"
-    echo -e "    ${GREEN}metrics${NC} <service>  Show service metrics"
-    echo -e "    ${GREEN}services${NC}           List all monitored services"
-    echo -e "    ${GREEN}config${NC}             Show/edit configuration"
-    echo ""
-    echo -e "${YELLOW}SERVICES:${NC}"
-    echo "    abemon, bm, codex, foodplan, blue-mountain, concursal, fundacion, logistics"
-    echo "    Or use 'all' for all services"
-    echo ""
-    echo -e "${YELLOW}OPTIONS:${NC}"
-    echo "    --last <duration>    Time range (e.g., 1h, 24h, 7d) [default: 1h]"
-    echo "    --error              Only show errors"
-    echo "    --grep <pattern>     Filter by pattern"
-    echo "    --format <type>      Output format: text, json [default: text]"
-    echo "    --limit <n>          Max number of results [default: 100]"
-    echo ""
-    echo -e "${YELLOW}EXAMPLES:${NC}"
-    echo "    obs-turbo logs abemon --last 1h"
-    echo "    obs-turbo logs abemon --error --last 24h"
-    echo "    obs-turbo logs all --grep \"500\" --last 6h"
-    echo "    obs-turbo tail abemon"
-    echo "    obs-turbo status"
-    echo "    obs-turbo incidents"
-    echo ""
-}
 
-# Resolve service name
-resolve_service() {
-    local service="$1"
-    if [[ "$service" == "all" ]]; then
-        echo ""
-    elif [[ -n "${SERVICES[$service]}" ]]; then
-        echo "${SERVICES[$service]}"
-    else
-        echo "$service"
-    fi
-}
+class ObsError(Exception):
+    """Observability CLI error."""
+    pass
 
-# Query logs using logcli
-cmd_logs() {
-    # Handle --help as first argument
-    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-        echo -e "${BLUE}obs-turbo logs${NC} - Query logs from Loki"
-        echo ""
-        echo -e "${YELLOW}USAGE:${NC}"
-        echo "    obs-turbo logs <service> [options]"
-        echo ""
-        echo -e "${YELLOW}ARGUMENTS:${NC}"
-        echo "    <service>            Service name (abemon, bm, codex, etc.) or 'all'"
-        echo ""
-        echo -e "${YELLOW}OPTIONS:${NC}"
-        echo "    --last <duration>    Time range (e.g., 1h, 24h, 7d) [default: 1h]"
-        echo "    --error              Only show errors"
-        echo "    --grep <pattern>     Filter by pattern"
-        echo "    --format <type>      Output format: text, json [default: text]"
-        echo "    --limit <n>          Max number of results [default: 100]"
-        echo ""
-        echo -e "${YELLOW}EXAMPLES:${NC}"
-        echo "    obs-turbo logs abemon --last 1h"
-        echo "    obs-turbo logs abemon --error --last 24h"
-        echo "    obs-turbo logs all --grep \"500\" --last 6h"
-        echo ""
-        echo -e "${YELLOW}REQUIRES:${NC}"
-        echo "    logcli - Install with: brew install loki"
-        echo ""
-        return 0
-    fi
 
-    local service="${1:-all}"
-    shift || true
+def load_credentials() -> Dict[str, Any]:
+    """Load credentials from config file."""
+    if not os.path.exists(CREDS_FILE):
+        raise ObsError(f"Credentials file not found: {CREDS_FILE}")
 
-    local duration="1h"
-    local only_errors=false
-    local grep_pattern=""
-    local format="text"
-    local limit=100
+    with open(CREDS_FILE) as f:
+        return json.load(f)
 
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --last)
-                duration="$2"
-                shift 2
-                ;;
-            --error)
-                only_errors=true
-                shift
-                ;;
-            --grep)
-                grep_pattern="$2"
-                shift 2
-                ;;
-            --format)
-                format="$2"
-                shift 2
-                ;;
-            --limit)
-                limit="$2"
-                shift 2
-                ;;
-            -h|--help)
-                # Already handled above, but in case it appears after service name
-                cmd_logs --help
-                return 0
-                ;;
-            *)
-                shift
-                ;;
-        esac
-    done
 
-    local resolved_service=$(resolve_service "$service")
-    local query=""
+def parse_duration(duration: str) -> int:
+    """Parse duration string to nanoseconds for Loki."""
+    match = re.match(r'^(\d+)([mhd])$', duration.lower())
+    if not match:
+        raise ObsError(f"Invalid duration format: {duration}. Use 5m, 1h, 24h, 7d")
 
-    if [[ -n "$resolved_service" ]]; then
-        query="{service=\"$resolved_service\"}"
-    else
-        query="{source=\"railway\"}"
-    fi
+    value = int(match.group(1))
+    unit = match.group(2)
 
-    if [[ "$only_errors" == true ]]; then
-        query="$query |~ \`(?i)(error|fail|exception|critical)\`"
-    fi
+    if unit == 'm':
+        return value * 60 * 1_000_000_000
+    elif unit == 'h':
+        return value * 3600 * 1_000_000_000
+    elif unit == 'd':
+        return value * 86400 * 1_000_000_000
 
-    if [[ -n "$grep_pattern" ]]; then
-        query="$query |~ \`$grep_pattern\`"
-    fi
+    return value * 1_000_000_000
 
-    echo -e "${BLUE}Querying logs...${NC}"
-    echo -e "${YELLOW}Query:${NC} $query"
-    echo -e "${YELLOW}Range:${NC} last $duration"
-    echo ""
 
-    if command -v logcli &> /dev/null; then
-        logcli query \
-            --addr="$LOKI_URL" \
-            --since="$duration" \
-            --limit="$limit" \
-            --output="$format" \
-            "$query"
-    else
-        echo -e "${RED}Error: logcli not installed${NC}"
-        echo "Install with: brew install loki"
-        exit 1
-    fi
-}
+def resolve_service(service: str) -> Optional[str]:
+    """Resolve service alias to Loki project label."""
+    if service.lower() == "all":
+        return None  # No filter
+    return SERVICE_ALIASES.get(service.lower(), service)
 
-# Stream logs in real-time
-cmd_tail() {
-    local service="${1:-all}"
-    shift || true
 
-    local filter=""
+def query_loki(creds: Dict, logql: str, limit: int = 1000, start_ns: int = None, end_ns: int = None) -> List[Dict]:
+    """Query Loki via Grafana proxy."""
+    grafana_url = creds["grafana"]["url"]
+    token = creds["grafana"]["token"]
 
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --filter)
-                filter="$2"
-                shift 2
-                ;;
-            *)
-                shift
-                ;;
-        esac
-    done
+    url = f"{grafana_url}/api/datasources/proxy/uid/loki/loki/api/v1/query_range"
 
-    local resolved_service=$(resolve_service "$service")
-    local query=""
+    now = int(datetime.now().timestamp() * 1_000_000_000)
+    if end_ns is None:
+        end_ns = now
+    if start_ns is None:
+        start_ns = now - (3600 * 1_000_000_000)  # Default 1h
 
-    if [[ -n "$resolved_service" ]]; then
-        query="{service=\"$resolved_service\"}"
-    else
-        query="{source=\"railway\"}"
-    fi
+    params = {
+        "query": logql,
+        "limit": limit,
+        "start": start_ns,
+        "end": end_ns,
+        "direction": "backward",
+    }
 
-    if [[ -n "$filter" ]]; then
-        query="$query |~ \`(?i)$filter\`"
-    fi
+    headers = {"Authorization": f"Bearer {token}"}
 
-    echo -e "${BLUE}Streaming logs...${NC} (Ctrl+C to stop)"
-    echo -e "${YELLOW}Query:${NC} $query"
-    echo ""
+    try:
+        resp = requests.get(url, params=params, headers=headers, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
 
-    if command -v logcli &> /dev/null; then
-        logcli query \
-            --addr="$LOKI_URL" \
-            --tail \
-            --output=default \
-            "$query"
-    else
-        echo -e "${RED}Error: logcli not installed${NC}"
-        echo "Install with: brew install loki"
-        exit 1
-    fi
-}
+        if data.get("status") != "success":
+            raise ObsError(f"Loki query failed: {data}")
 
-# Check status from Uptime Kuma
-cmd_status() {
-    local service="${1:-}"
+        return data.get("data", {}).get("result", [])
+    except requests.exceptions.RequestException as e:
+        raise ObsError(f"Loki request failed: {e}")
 
-    echo -e "${BLUE}Checking service status...${NC}"
-    echo ""
 
-    # Use Uptime Kuma API - need two endpoints
-    local main_url="$UPTIME_KUMA_URL/api/status-page/main"
-    local heartbeat_url="$UPTIME_KUMA_URL/api/status-page/heartbeat/main"
+def get_labels(creds: Dict) -> List[str]:
+    """Get available Loki labels."""
+    grafana_url = creds["grafana"]["url"]
+    token = creds["grafana"]["token"]
 
-    if command -v curl &> /dev/null; then
-        local main_response=$(curl -s "$main_url" 2>/dev/null || echo '{"error": "Failed to fetch"}')
-        local heartbeat_response=$(curl -s "$heartbeat_url" 2>/dev/null || echo '{"heartbeatList": {}}')
+    url = f"{grafana_url}/api/datasources/proxy/uid/loki/loki/api/v1/labels"
+    headers = {"Authorization": f"Bearer {token}"}
 
-        if printf '%s' "$main_response" | jq -e '.error' &>/dev/null; then
-            echo -e "${YELLOW}Unable to fetch from Uptime Kuma API${NC}"
-            echo "Falling back to direct HTTP checks..."
-            echo ""
+    resp = requests.get(url, headers=headers, timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
 
-            # Direct HTTP checks
-            for svc_alias in ${(k)SERVICES}; do
-                local url="${SERVICES[$svc_alias]}"
-                if [[ -z "$service" || "$svc_alias" == "$service" ]]; then
-                    local status_code=$(curl -s -o /dev/null -w "%{http_code}" "https://$url" --max-time 5 2>/dev/null || echo "000")
-                    if [[ "$status_code" == "200" ]]; then
-                        echo -e "${GREEN}[UP]${NC} $svc_alias ($url) - HTTP $status_code"
-                    else
-                        echo -e "${RED}[DOWN]${NC} $svc_alias ($url) - HTTP $status_code"
-                    fi
-                fi
-            done
-        else
-            # Parse monitors and heartbeats together (use printf to avoid escape sequence interpretation)
-            local monitors=$(printf '%s' "$main_response" | jq -r '.publicGroupList[]?.monitorList[]? | "\(.id)|\(.name)"' 2>/dev/null)
+    return data.get("data", [])
 
-            if [[ -z "$monitors" ]]; then
-                echo "No monitors found"
-                return 0
-            fi
 
-            # Display header
-            printf "%-25s %-10s %-10s\n" "SERVICE" "STATUS" "PING"
-            echo "-------------------------------------------"
+def get_label_values(creds: Dict, label: str) -> List[str]:
+    """Get values for a specific label."""
+    grafana_url = creds["grafana"]["url"]
+    token = creds["grafana"]["token"]
 
-            # Process each monitor
-            while IFS='|' read -r monitor_id monitor_name; do
-                [[ -z "$monitor_id" ]] && continue
+    url = f"{grafana_url}/api/datasources/proxy/uid/loki/loki/api/v1/label/{label}/values"
+    headers = {"Authorization": f"Bearer {token}"}
 
-                # Filter by service if specified
-                if [[ -n "$service" ]]; then
-                    local service_domain=$(resolve_service "$service")
-                    if [[ "$monitor_name" != *"$service"* && "$monitor_name" != *"$service_domain"* ]]; then
-                        continue
-                    fi
-                fi
+    resp = requests.get(url, headers=headers, timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
 
-                # Get latest heartbeat for this monitor
-                local latest_heartbeat=$(printf '%s' "$heartbeat_response" | jq -r ".heartbeatList[\"$monitor_id\"][-1]" 2>/dev/null)
-                local monitor_status=$(printf '%s' "$latest_heartbeat" | jq -r '.status // 0' 2>/dev/null)
-                local ping_time=$(printf '%s' "$latest_heartbeat" | jq -r '.ping // "-"' 2>/dev/null)
+    return data.get("data", [])
 
-                if [[ "$monitor_status" == "1" ]]; then
-                    printf "${GREEN}%-25s${NC} ${GREEN}%-10s${NC} %s ms\n" "$monitor_name" "UP" "$ping_time"
-                else
-                    printf "${RED}%-25s${NC} ${RED}%-10s${NC} %s ms\n" "$monitor_name" "DOWN" "$ping_time"
-                fi
-            done <<< "$monitors"
-        fi
-    else
-        echo -e "${RED}Error: curl not installed${NC}"
-        exit 1
-    fi
-}
 
-# List incidents
-cmd_incidents() {
-    echo -e "${BLUE}Checking for incidents...${NC}"
-    echo ""
+def cmd_logs(args):
+    """Query logs from Loki."""
+    creds = load_credentials()
 
-    local api_url="$UPTIME_KUMA_URL/api/status-page/main"
+    service = resolve_service(args.service)
 
-    if command -v curl &> /dev/null; then
-        local response=$(curl -s "$api_url" 2>/dev/null || echo '{}')
-        local incidents=$(echo "$response" | jq -r '.incident // empty' 2>/dev/null)
+    if service:
+        # Match by project label (exact match)
+        logql = f'{{project="{service}"}}'
+    else:
+        logql = '{project=~".+"}'  # All projects
 
-        if [[ -n "$incidents" && "$incidents" != "null" ]]; then
-            echo -e "${RED}Active Incidents:${NC}"
-            echo "$incidents" | jq -r '.title // "Unknown incident"'
-        else
-            echo -e "${GREEN}No active incidents${NC}"
-        fi
-    else
-        echo -e "${RED}Error: curl not installed${NC}"
-        exit 1
-    fi
-}
+    # Add grep filter (case-insensitive)
+    if args.grep:
+        logql += f' |~ "(?i){args.grep}"'
 
-# Show metrics
-cmd_metrics() {
-    local service="${1:-all}"
-    local format="${2:-text}"
+    # Add error filter (case-insensitive)
+    if args.error:
+        logql += ' |~ "(?i)(error|exception|fatal|panic|critical)"'
 
-    echo -e "${BLUE}Fetching metrics...${NC}"
-    echo ""
+    # Parse duration
+    duration_ns = parse_duration(args.last)
+    now = int(datetime.now().timestamp() * 1_000_000_000)
+    start_ns = now - duration_ns
 
-    # Query Prometheus via Grafana API or directly
-    local resolved_service=$(resolve_service "$service")
+    # Query
+    results = query_loki(creds, logql, limit=args.limit, start_ns=start_ns, end_ns=now)
 
-    if [[ -n "$GRAFANA_TOKEN" ]]; then
-        # Use Grafana API
-        curl -s -H "Authorization: Bearer $GRAFANA_TOKEN" \
-            "$GRAFANA_URL/api/datasources/proxy/1/api/v1/query?query=up" 2>/dev/null | \
-            jq -r '.data.result[] | "\(.metric.job): \(.value[1])"' 2>/dev/null || \
-            echo "Failed to fetch metrics"
-    else
-        echo -e "${YELLOW}Grafana token not configured${NC}"
-        echo "Add grafana_token to ~/.obs_credentials.json"
-    fi
-}
+    if args.json:
+        # Output as JSON for agents
+        output = []
+        for stream in results:
+            labels = stream.get("stream", {})
+            for ts, line in stream.get("values", []):
+                output.append({
+                    "timestamp": datetime.fromtimestamp(int(ts) / 1_000_000_000).isoformat(),
+                    "project": labels.get("project", ""),
+                    "service": labels.get("service_name", labels.get("service", "")),
+                    "message": line
+                })
+        print(json.dumps(output, indent=2))
+    else:
+        # Human-readable output
+        if not results:
+            print(f"No logs found for {args.service} in the last {args.last}")
+            return
 
-# List services
-cmd_services() {
-    echo -e "${BLUE}Monitored Services:${NC}"
-    echo ""
+        all_lines = []
+        for stream in results:
+            for ts, line in stream.get("values", []):
+                labels = stream.get("stream", {})
+                dt = datetime.fromtimestamp(int(ts) / 1_000_000_000)
+                project = labels.get("project", "?")
+                service_name = labels.get("service_name", labels.get("service", "?"))
+                all_lines.append((int(ts), dt, project, service_name, line))
 
-    echo -e "${YELLOW}Railway:${NC}"
-    for svc in abemon bm codex foodplan; do
-        echo "  $svc -> ${SERVICES[$svc]}"
-    done
+        # Sort by timestamp (oldest first for readability)
+        all_lines.sort(key=lambda x: x[0])
 
-    echo ""
-    echo -e "${YELLOW}Hostinger:${NC}"
-    for svc in blue-mountain concursal fundacion logistics; do
-        echo "  $svc -> ${SERVICES[$svc]}"
-    done
-}
+        for ts, dt, project, service_name, line in all_lines:
+            time_str = dt.strftime("%H:%M:%S")
+            # Truncate long lines
+            if len(line) > 200:
+                line = line[:197] + "..."
+            print(f"{time_str} [{project}] {line}")
 
-# Show/edit config
-cmd_config() {
-    if [[ ! -f "$CONFIG_FILE" ]]; then
-        echo -e "${YELLOW}Creating config file...${NC}"
-        cat > "$CONFIG_FILE" << 'EOF'
-{
-  "loki_url": "https://logs.abemon.es",
-  "uptime_kuma_url": "https://status.abemon.es",
-  "grafana_url": "https://logs.abemon.es",
-  "grafana_token": "",
-  "uptime_kuma_token": ""
-}
-EOF
-        echo "Created: $CONFIG_FILE"
-    fi
 
-    echo -e "${BLUE}Configuration:${NC}"
-    cat "$CONFIG_FILE" | jq .
-    echo ""
-    echo "Edit with: ${YELLOW}\$EDITOR $CONFIG_FILE${NC}"
-}
+def cmd_tail(args):
+    """Stream logs in real-time (polls every 2s)."""
+    import time
 
-# Main
-main() {
-    load_credentials
+    creds = load_credentials()
+    service = resolve_service(args.service)
 
-    local command="${1:-help}"
-    shift || true
+    if service:
+        logql = f'{{project="{service}"}}'
+    else:
+        logql = '{project=~".+"}'
 
-    case "$command" in
-        logs)
-            cmd_logs "$@"
-            ;;
-        tail)
-            cmd_tail "$@"
-            ;;
-        status)
-            cmd_status "$@"
-            ;;
-        incidents)
-            cmd_incidents
-            ;;
-        metrics)
-            cmd_metrics "$@"
-            ;;
-        services)
-            cmd_services
-            ;;
-        config)
-            cmd_config
-            ;;
-        help|--help|-h)
-            usage
-            ;;
-        *)
-            echo -e "${RED}Unknown command: $command${NC}"
-            echo ""
-            usage
-            exit 1
-            ;;
-    esac
-}
+    if args.filter:
+        logql += f' |~ "(?i){args.filter}"'
 
-main "$@"
+    print(f"Tailing logs for {args.service}... (Ctrl+C to stop)")
+    print("-" * 60)
+
+    seen_timestamps = set()
+
+    try:
+        while True:
+            now = int(datetime.now().timestamp() * 1_000_000_000)
+            start_ns = now - (10 * 1_000_000_000)  # Last 10 seconds
+
+            results = query_loki(creds, logql, limit=100, start_ns=start_ns, end_ns=now)
+
+            new_lines = []
+            for stream in results:
+                labels = stream.get("stream", {})
+                for ts, line in stream.get("values", []):
+                    if ts not in seen_timestamps:
+                        seen_timestamps.add(ts)
+                        dt = datetime.fromtimestamp(int(ts) / 1_000_000_000)
+                        project = labels.get("project", "?")
+                        new_lines.append((int(ts), dt, project, line))
+
+            # Print new lines (sorted by time)
+            new_lines.sort(key=lambda x: x[0])
+            for ts, dt, project, line in new_lines:
+                time_str = dt.strftime("%H:%M:%S")
+                if len(line) > 200:
+                    line = line[:197] + "..."
+                print(f"{time_str} [{project}] {line}")
+
+            # Clean up old timestamps to prevent memory growth
+            if len(seen_timestamps) > 10000:
+                cutoff = now - (60 * 1_000_000_000)
+                seen_timestamps = {ts for ts in seen_timestamps if int(ts) > cutoff}
+
+            time.sleep(2)
+    except KeyboardInterrupt:
+        print("\nStopped.")
+
+
+def cmd_status(args):
+    """Show service status from Uptime Kuma."""
+    creds = load_credentials()
+
+    uk_url = creds["uptime_kuma"]["url"]
+
+    try:
+        # Get public status page data
+        resp = requests.get(f"{uk_url}/api/status-page/main", timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+
+        # Get heartbeat data for real-time status
+        heartbeat_resp = requests.get(f"{uk_url}/api/status-page/heartbeat/main", timeout=10)
+        heartbeat_data = heartbeat_resp.json() if heartbeat_resp.ok else {}
+        heartbeat_list = heartbeat_data.get("heartbeatList", {})
+
+        monitors = {}
+        for group in data.get("publicGroupList", []):
+            group_name = group.get("name", "Unknown")
+            for mon in group.get("monitorList", []):
+                mon_id = str(mon.get("id"))
+                mon_name = mon.get("name", "Unknown")
+
+                # Get latest heartbeat
+                beats = heartbeat_list.get(mon_id, [])
+                if beats:
+                    latest = beats[-1]
+                    status = latest.get("status", 0)
+                    ping = latest.get("ping", "-")
+                else:
+                    status = 0
+                    ping = "-"
+
+                status_str = {0: "DOWN", 1: "UP", 2: "PENDING"}.get(status, "?")
+                monitors[mon_name] = {"group": group_name, "status": status_str, "ping": ping}
+
+        if args.service:
+            # Filter to specific service
+            search = args.service.lower()
+            matches = {k: v for k, v in monitors.items() if search in k.lower()}
+            if not matches:
+                print(f"No monitors found matching '{args.service}'")
+                return
+            monitors = matches
+
+        # Group by status
+        up = [(k, v) for k, v in monitors.items() if v["status"] == "UP"]
+        down = [(k, v) for k, v in monitors.items() if v["status"] == "DOWN"]
+        pending = [(k, v) for k, v in monitors.items() if v["status"] == "PENDING"]
+
+        if down:
+            print("\033[91mDOWN:\033[0m")
+            for name, info in sorted(down):
+                print(f"  {name} ({info['group']})")
+
+        if pending:
+            print("\n\033[93mPENDING:\033[0m")
+            for name, info in sorted(pending):
+                print(f"  {name} ({info['group']})")
+
+        if args.verbose or args.service:
+            print("\n\033[92mUP:\033[0m")
+            for name, info in sorted(up):
+                ping_str = f" ({info['ping']}ms)" if info['ping'] != "-" else ""
+                print(f"  {name}{ping_str}")
+        else:
+            print(f"\n\033[92mUP:\033[0m {len(up)} monitors")
+
+        # Summary
+        total = len(monitors)
+        print(f"\nTotal: {total} | UP: {len(up)} | DOWN: {len(down)} | PENDING: {len(pending)}")
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching status: {e}")
+        sys.exit(1)
+
+
+def cmd_services(args):
+    """List available services/projects."""
+    creds = load_credentials()
+
+    print("Available projects in Loki:")
+    print("-" * 40)
+
+    projects = get_label_values(creds, "project")
+    for p in sorted(projects):
+        alias = None
+        for k, v in SERVICE_ALIASES.items():
+            if v.lower() == p.lower():
+                alias = k
+                break
+        if alias:
+            print(f"  {p} (alias: {alias})")
+        else:
+            print(f"  {p}")
+
+    print("\nService names:")
+    print("-" * 40)
+    services = get_label_values(creds, "service_name")
+    for s in sorted(services):
+        print(f"  {s}")
+
+    print("\nAliases:")
+    print("-" * 40)
+    for alias, project in sorted(SERVICE_ALIASES.items()):
+        print(f"  {alias} -> {project}")
+
+
+def cmd_labels(args):
+    """Show available Loki labels and values."""
+    creds = load_credentials()
+
+    labels = get_labels(creds)
+
+    for label in labels:
+        values = get_label_values(creds, label)
+        print(f"\n{label}:")
+        for v in sorted(values):
+            print(f"  - {v}")
+
+
+def cmd_query(args):
+    """Execute raw LogQL query."""
+    creds = load_credentials()
+
+    duration_ns = parse_duration(args.last)
+    now = int(datetime.now().timestamp() * 1_000_000_000)
+    start_ns = now - duration_ns
+
+    results = query_loki(creds, args.logql, limit=args.limit, start_ns=start_ns, end_ns=now)
+
+    if args.json:
+        print(json.dumps(results, indent=2))
+    else:
+        for stream in results:
+            labels = stream.get("stream", {})
+            print(f"Stream: {labels}")
+            for ts, line in stream.get("values", []):
+                dt = datetime.fromtimestamp(int(ts) / 1_000_000_000)
+                print(f"  [{dt.strftime('%H:%M:%S')}] {line[:200]}")
+
+
+def cmd_incidents(args):
+    """Show current incidents from Uptime Kuma."""
+    creds = load_credentials()
+    uk_url = creds["uptime_kuma"]["url"]
+
+    try:
+        resp = requests.get(f"{uk_url}/api/status-page/main", timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+
+        incident = data.get("incident")
+        if incident:
+            print(f"\033[91mActive Incident:\033[0m")
+            print(f"  Title: {incident.get('title', 'Unknown')}")
+            print(f"  Content: {incident.get('content', '')}")
+            print(f"  Created: {incident.get('createdDate', '')}")
+        else:
+            print("\033[92mNo active incidents\033[0m")
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="obs-turbo - Unified observability CLI for abemon.es",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+    obs-turbo logs abemon.es --last 1h
+    obs-turbo logs abemon.es --error --last 24h
+    obs-turbo logs all --grep "500" --last 6h
+    obs-turbo tail bm.consulting --filter error
+    obs-turbo status
+    obs-turbo status abemon
+    obs-turbo services
+    obs-turbo incidents
+"""
+    )
+
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+
+    # logs command
+    logs_parser = subparsers.add_parser("logs", help="Query logs from Loki")
+    logs_parser.add_argument("service", help="Service name or 'all'")
+    logs_parser.add_argument("--last", default="1h", help="Duration (5m, 1h, 24h, 7d)")
+    logs_parser.add_argument("--grep", help="Filter by pattern")
+    logs_parser.add_argument("--error", action="store_true", help="Show only errors")
+    logs_parser.add_argument("--limit", type=int, default=500, help="Max log entries")
+    logs_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    logs_parser.set_defaults(func=cmd_logs)
+
+    # tail command
+    tail_parser = subparsers.add_parser("tail", help="Stream logs in real-time")
+    tail_parser.add_argument("service", help="Service name or 'all'")
+    tail_parser.add_argument("--filter", help="Filter by pattern")
+    tail_parser.set_defaults(func=cmd_tail)
+
+    # status command
+    status_parser = subparsers.add_parser("status", help="Show service status")
+    status_parser.add_argument("service", nargs="?", help="Filter by service name")
+    status_parser.add_argument("-v", "--verbose", action="store_true", help="Show all UP monitors")
+    status_parser.set_defaults(func=cmd_status)
+
+    # incidents command
+    incidents_parser = subparsers.add_parser("incidents", help="Show current incidents")
+    incidents_parser.set_defaults(func=cmd_incidents)
+
+    # services command
+    services_parser = subparsers.add_parser("services", help="List available services")
+    services_parser.set_defaults(func=cmd_services)
+
+    # labels command
+    labels_parser = subparsers.add_parser("labels", help="Show Loki labels")
+    labels_parser.set_defaults(func=cmd_labels)
+
+    # query command
+    query_parser = subparsers.add_parser("query", help="Execute raw LogQL query")
+    query_parser.add_argument("logql", help="LogQL query string")
+    query_parser.add_argument("--last", default="1h", help="Duration")
+    query_parser.add_argument("--limit", type=int, default=500, help="Max entries")
+    query_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    query_parser.set_defaults(func=cmd_query)
+
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
+    try:
+        args.func(args)
+    except ObsError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except KeyboardInterrupt:
+        sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
