@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Health status overview of all monitored services",
+  "description": "Logs from Railway services: abemon.es, bm.consulting, codex.abemon.es, foodplan.pro",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -26,10 +26,10 @@
       "icon": "external link",
       "includeVars": false,
       "keepTime": true,
-      "tags": ["railway"],
+      "tags": ["overview"],
       "targetBlank": true,
-      "title": "Railway Services",
-      "tooltip": "View Railway service logs",
+      "title": "Services Overview",
+      "tooltip": "Back to overview dashboard",
       "type": "dashboards",
       "url": ""
     }
@@ -45,7 +45,7 @@
       },
       "id": 100,
       "panels": [],
-      "title": "Service Health Status",
+      "title": "Service Status Summary",
       "type": "row"
     },
     {
@@ -53,7 +53,7 @@
         "type": "loki",
         "uid": "loki"
       },
-      "description": "Total log entries in the last hour across all services",
+      "description": "Log entries for abemon.es in the last hour",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -69,11 +69,11 @@
               },
               {
                 "color": "yellow",
-                "value": 10
+                "value": 1
               },
               {
                 "color": "green",
-                "value": 100
+                "value": 10
               }
             ]
           },
@@ -109,12 +109,12 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(count_over_time({service=~\".+\"}[1h]))",
+          "expr": "sum(count_over_time({service=\"abemon.es\"}[1h]))",
           "queryType": "instant",
           "refId": "A"
         }
       ],
-      "title": "Total Log Entries (1h)",
+      "title": "abemon.es (1h)",
       "type": "stat"
     },
     {
@@ -122,7 +122,7 @@
         "type": "loki",
         "uid": "loki"
       },
-      "description": "Error logs detected in the last hour",
+      "description": "Log entries for bm.consulting in the last hour",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -133,16 +133,16 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
               },
               {
                 "color": "yellow",
-                "value": 5
+                "value": 1
               },
               {
-                "color": "red",
-                "value": 20
+                "color": "green",
+                "value": 10
               }
             ]
           },
@@ -178,12 +178,12 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(count_over_time({service=~\".+\"} |~ `(?i)(error|fail|exception|critical)`[1h]))",
+          "expr": "sum(count_over_time({service=\"bm.consulting\"}[1h]))",
           "queryType": "instant",
           "refId": "A"
         }
       ],
-      "title": "Errors (1h)",
+      "title": "bm.consulting (1h)",
       "type": "stat"
     },
     {
@@ -191,7 +191,7 @@
         "type": "loki",
         "uid": "loki"
       },
-      "description": "Warning logs detected in the last hour",
+      "description": "Log entries for codex.abemon.es in the last hour",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -202,16 +202,16 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
               },
               {
                 "color": "yellow",
-                "value": 10
+                "value": 1
               },
               {
-                "color": "orange",
-                "value": 50
+                "color": "green",
+                "value": 10
               }
             ]
           },
@@ -247,12 +247,12 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(count_over_time({service=~\".+\"} |~ `(?i)(warn|warning)`[1h]))",
+          "expr": "sum(count_over_time({service=\"codex.abemon.es\"}[1h]))",
           "queryType": "instant",
           "refId": "A"
         }
       ],
-      "title": "Warnings (1h)",
+      "title": "codex.abemon.es (1h)",
       "type": "stat"
     },
     {
@@ -260,7 +260,7 @@
         "type": "loki",
         "uid": "loki"
       },
-      "description": "Number of unique services sending logs",
+      "description": "Log entries for foodplan.pro in the last hour",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -271,8 +271,16 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "red",
                 "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 10
               }
             ]
           },
@@ -289,11 +297,11 @@
       "id": 4,
       "options": {
         "colorMode": "background",
-        "graphMode": "none",
+        "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": ["sum"],
           "fields": "",
           "values": false
         },
@@ -308,12 +316,12 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "count(sum by (service) (count_over_time({service=~\".+\"}[24h])))",
+          "expr": "sum(count_over_time({service=\"foodplan.pro\"}[1h]))",
           "queryType": "instant",
           "refId": "A"
         }
       ],
-      "title": "Active Services",
+      "title": "foodplan.pro (1h)",
       "type": "stat"
     },
     {
@@ -326,7 +334,7 @@
       },
       "id": 101,
       "panels": [],
-      "title": "Service Activity",
+      "title": "Log Activity Over Time",
       "type": "row"
     },
     {
@@ -334,7 +342,7 @@
         "type": "loki",
         "uid": "loki"
       },
-      "description": "Log volume per service over time",
+      "description": "Log volume comparison across all Railway services",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -384,18 +392,79 @@
           },
           "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "abemon.es"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bm.consulting"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "codex.abemon.es"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "foodplan.pro"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 24,
         "x": 0,
         "y": 6
       },
       "id": 5,
       "options": {
         "legend": {
-          "calcs": ["sum"],
+          "calcs": ["sum", "mean"],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true,
@@ -413,108 +482,12 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (service) (count_over_time({service=~\".+\"}[1m]))",
+          "expr": "sum by (service) (count_over_time({service=~\"abemon.es|bm.consulting|codex.abemon.es|foodplan.pro\"}[1m]))",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
       ],
       "title": "Log Volume by Service",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "description": "Error rate per service over time",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "Errors/min",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 5
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 6
-      },
-      "id": 6,
-      "options": {
-        "legend": {
-          "calcs": ["sum"],
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true,
-          "sortBy": "Total",
-          "sortDesc": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (service) (count_over_time({service=~\".+\"} |~ `(?i)(error|fail|exception|critical)`[1m]))",
-          "legendFormat": "{{service}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Error Rate by Service",
       "type": "timeseries"
     },
     {
@@ -527,7 +500,7 @@
       },
       "id": 102,
       "panels": [],
-      "title": "Recent Activity",
+      "title": "abemon.es Logs",
       "type": "row"
     },
     {
@@ -535,20 +508,20 @@
         "type": "loki",
         "uid": "loki"
       },
-      "description": "Recent error and critical logs across all services",
+      "description": "All logs from abemon.es WordPress service",
       "gridPos": {
         "h": 10,
-        "w": 24,
+        "w": 12,
         "x": 0,
         "y": 15
       },
-      "id": 7,
+      "id": 10,
       "options": {
         "dedupStrategy": "none",
         "enableLogDetails": true,
         "prettifyLogMessage": false,
         "showCommonLabels": false,
-        "showLabels": true,
+        "showLabels": false,
         "showTime": true,
         "sortOrder": "Descending",
         "wrapLogMessage": true
@@ -559,11 +532,11 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{service=~\".+\"} |~ `(?i)(error|fail|exception|critical)`",
+          "expr": "{service=\"abemon.es\"}",
           "refId": "A"
         }
       ],
-      "title": "Recent Errors (All Services)",
+      "title": "abemon.es - All Logs",
       "type": "logs"
     },
     {
@@ -571,23 +544,23 @@
         "type": "loki",
         "uid": "loki"
       },
-      "description": "Live log stream from all services",
+      "description": "Error logs from abemon.es",
       "gridPos": {
         "h": 10,
-        "w": 24,
-        "x": 0,
-        "y": 25
+        "w": 12,
+        "x": 12,
+        "y": 15
       },
-      "id": 8,
+      "id": 11,
       "options": {
         "dedupStrategy": "none",
         "enableLogDetails": true,
         "prettifyLogMessage": false,
         "showCommonLabels": false,
-        "showLabels": true,
+        "showLabels": false,
         "showTime": true,
         "sortOrder": "Descending",
-        "wrapLogMessage": false
+        "wrapLogMessage": true
       },
       "targets": [
         {
@@ -595,19 +568,304 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{service=~\".+\"}",
+          "expr": "{service=\"abemon.es\"} |~ `(?i)(error|fail|exception|critical|fatal)`",
           "refId": "A"
         }
       ],
-      "title": "All Logs (Live)",
+      "title": "abemon.es - Errors Only",
+      "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "id": 103,
+      "panels": [],
+      "title": "bm.consulting Logs",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "All logs from bm.consulting WordPress service",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "id": 20,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{service=\"bm.consulting\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "bm.consulting - All Logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Error logs from bm.consulting",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 26
+      },
+      "id": 21,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{service=\"bm.consulting\"} |~ `(?i)(error|fail|exception|critical|fatal)`",
+          "refId": "A"
+        }
+      ],
+      "title": "bm.consulting - Errors Only",
+      "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "id": 104,
+      "panels": [],
+      "title": "codex.abemon.es Logs",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "All logs from codex.abemon.es WordPress service",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 37
+      },
+      "id": 30,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{service=\"codex.abemon.es\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "codex.abemon.es - All Logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Error logs from codex.abemon.es",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 37
+      },
+      "id": 31,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{service=\"codex.abemon.es\"} |~ `(?i)(error|fail|exception|critical|fatal)`",
+          "refId": "A"
+        }
+      ],
+      "title": "codex.abemon.es - Errors Only",
+      "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 47
+      },
+      "id": 105,
+      "panels": [],
+      "title": "foodplan.pro Logs",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "All logs from foodplan.pro Next.js service",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "id": 40,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{service=\"foodplan.pro\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "foodplan.pro - All Logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Error logs from foodplan.pro",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
+      "id": 41,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{service=\"foodplan.pro\"} |~ `(?i)(error|fail|exception|critical|fatal)`",
+          "refId": "A"
+        }
+      ],
+      "title": "foodplan.pro - Errors Only",
       "type": "logs"
     }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["abemon", "overview", "health"],
+  "tags": ["abemon", "railway", "wordpress", "nextjs"],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": ["All"],
+          "value": ["$__all"]
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Service",
+        "multi": true,
+        "name": "service",
+        "options": [],
+        "query": {
+          "label": "service",
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "stream": "",
+          "type": 1
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-1h",
@@ -618,8 +876,8 @@
     "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "2d", "7d", "30d"]
   },
   "timezone": "Europe/Madrid",
-  "title": "Services Overview",
-  "uid": "services-overview",
+  "title": "Railway Services",
+  "uid": "railway-services",
   "version": 1,
   "weekStart": "monday"
 }
