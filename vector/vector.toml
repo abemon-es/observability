@@ -1,9 +1,11 @@
 # Vector Configuration for abemon.es Observability
 # Receives logs from Railway log drains and ships to Loki
 
+# Health check API
 [api]
 enabled = true
 address = "0.0.0.0:8686"
+playground = false
 
 # ============================================
 # SOURCES - Railway Log Drain HTTP endpoint
@@ -12,8 +14,7 @@ address = "0.0.0.0:8686"
 [sources.railway_logs]
 type = "http_server"
 address = "0.0.0.0:8080"
-encoding = "json"
-headers = ["X-Railway-Service", "X-Railway-Environment", "X-Railway-Project"]
+decoding.codec = "json"
 
 # Internal Vector metrics
 [sources.vector_metrics]
@@ -27,45 +28,20 @@ type = "internal_metrics"
 type = "remap"
 inputs = ["railway_logs"]
 source = '''
-# Extract service name from header or message
-.service = get!(., ["X-Railway-Service"]) ?? "unknown"
-.environment = get!(., ["X-Railway-Environment"]) ?? "production"
-.project = get!(., ["X-Railway-Project"]) ?? "unknown"
-
-# Ensure timestamp exists
+.service = .service_name ?? .serviceName ?? .service ?? "unknown"
+.environment = .environment ?? "production"
+.project = .project_name ?? .projectName ?? .project ?? "unknown"
 .timestamp = .timestamp ?? now()
+.msg = .message ?? .msg ?? .log ?? to_string(.)
+.level = .level ?? .severity ?? "info"
 
-# Try to parse JSON message if present
-if exists(.message) {
-  parsed, err = parse_json(.message)
-  if err == null {
-    .level = parsed.level ?? "info"
-    .msg = parsed.msg ?? parsed.message ?? .message
-  } else {
-    .level = "info"
-    .msg = .message
-  }
-}
-
-# Detect log level from message content
-if contains(string!(.msg), "error") || contains(string!(.msg), "Error") || contains(string!(.msg), "ERROR") {
+if contains(to_string(.msg) ?? "", "error") || contains(to_string(.msg) ?? "", "ERROR") {
   .level = "error"
-} else if contains(string!(.msg), "warn") || contains(string!(.msg), "Warn") || contains(string!(.msg), "WARN") {
+} else if contains(to_string(.msg) ?? "", "warn") || contains(to_string(.msg) ?? "", "WARN") {
   .level = "warn"
 }
 
-# Add source label
 .source = "railway"
-'''
-
-# Filter out health checks and noise
-[transforms.filter_noise]
-type = "filter"
-inputs = ["parse_railway"]
-condition = '''
-!starts_with(string!(.msg), "GET /health") &&
-!starts_with(string!(.msg), "GET /favicon") &&
-!starts_with(string!(.msg), "HEAD /")
 '''
 
 # ============================================
@@ -74,19 +50,18 @@ condition = '''
 
 [sinks.loki]
 type = "loki"
-inputs = ["filter_noise"]
+inputs = ["parse_railway"]
 endpoint = "${LOKI_URL}"
 encoding.codec = "json"
 
 [sinks.loki.labels]
 service = "{{ service }}"
 environment = "{{ environment }}"
-project = "{{ project }}"
 level = "{{ level }}"
 source = "{{ source }}"
 
-# Console output for debugging
+# Debug output
 [sinks.console]
 type = "console"
-inputs = ["filter_noise"]
+inputs = ["parse_railway"]
 encoding.codec = "text"
