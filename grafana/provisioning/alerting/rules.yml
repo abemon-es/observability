@@ -1,0 +1,285 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Error Detection
+    folder: Alerting
+    interval: 1m
+    rules:
+      # High error rate across all services
+      - uid: high-error-rate
+        title: High Error Rate (Global)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({project=~".+"} |~ "(?i)(error|exception|fatal)" [5m]))'
+              queryType: instant
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 20
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected across services"
+          description: "More than 20 errors in the last 5 minutes"
+
+      # WordPress PHP Errors
+      - uid: wordpress-php-errors
+        title: WordPress PHP Errors
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({project=~"abemon.es|BM Consulting"} |~ "PHP (Fatal|Parse error|Warning|Notice)" [5m]))'
+              queryType: instant
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 5
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PHP errors detected in WordPress sites"
+          description: "Check abemon.es and bm.consulting for PHP errors"
+
+      # Database Connection Errors
+      - uid: database-errors
+        title: Database Connection Errors
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({service_name=~"MySQL|Postgres.*"} |~ "(?i)(connection refused|timeout|deadlock|too many connections)" [5m]))'
+              queryType: instant
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 3
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection errors detected"
+          description: "MySQL or PostgreSQL connectivity issues"
+
+      # API Errors (500 responses)
+      - uid: api-500-errors
+        title: API 500 Errors
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({project=~"foodplan.pro|api-pricing"} |~ "(?i)(500|internal server error|unhandled)" [5m]))'
+              queryType: instant
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 5
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API returning 500 errors"
+          description: "Critical errors in API services"
+
+      # Memory/Resource Issues
+      - uid: memory-issues
+        title: Memory or Resource Issues
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({project=~".+"} |~ "(?i)(out of memory|memory limit|killed|OOM)" [10m]))'
+              queryType: instant
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 1
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Memory or resource exhaustion detected"
+          description: "A service may be running out of memory"
+
+  - orgId: 1
+    name: Service Health
+    folder: Alerting
+    interval: 2m
+    rules:
+      # No logs from critical services
+      - uid: service-silent
+        title: Service Not Logging
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({project="abemon.es"} [15m]))'
+              queryType: instant
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: Alerting
+        execErrState: Error
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "abemon.es has no logs in 15 minutes"
+          description: "Service may be down or not generating logs"
+
+      # Deployment failures
+      - uid: deploy-failures
+        title: Deployment Failures
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({project=~".+"} |~ "(?i)(deploy failed|deployment crashed|build failed|exit code 1)" [10m]))'
+              queryType: instant
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Deployment failure detected"
+          description: "A service deployment may have failed"

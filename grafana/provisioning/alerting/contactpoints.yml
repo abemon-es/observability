@@ -1,0 +1,38 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: email-critical
+    receivers:
+      - uid: email-critical-1
+        type: email
+        settings:
+          addresses: mj@abemon.es
+          singleEmail: true
+          subject: '{{ template "abemon.email.subject" . }}'
+          message: '{{ template "abemon.email.html" . }}'
+        disableResolveMessage: false
+
+  - orgId: 1
+    name: email-warning
+    receivers:
+      - uid: email-warning-1
+        type: email
+        settings:
+          addresses: mj@abemon.es
+          singleEmail: true
+          subject: '{{ template "abemon.email.subject" . }}'
+          message: '{{ template "abemon.email.html" . }}'
+        disableResolveMessage: false
+
+  - orgId: 1
+    name: email-dev
+    receivers:
+      - uid: email-dev-1
+        type: email
+        settings:
+          addresses: mj@abemon.es
+          singleEmail: false
+          subject: '{{ template "abemon.email.subject" . }}'
+          message: '{{ template "abemon.email.html" . }}'
+        disableResolveMessage: false
