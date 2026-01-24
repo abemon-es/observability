@@ -1,0 +1,14 @@
+{
+  "name": "uptime-kuma-scripts",
+  "version": "1.0.0",
+  "description": "Scripts for managing Uptime Kuma monitors via Socket.IO",
+  "type": "commonjs",
+  "scripts": {
+    "add-monitors": "node add-ssl-dns-monitors.js",
+    "list-monitors": "node list-monitors.js",
+    "delete-monitors": "node delete-monitors.js"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.7.2"
+  }
+}

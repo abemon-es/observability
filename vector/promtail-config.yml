@@ -1,0 +1,23 @@
+server:
+  http_listen_port: 8080
+  grpc_listen_port: 0
+  log_level: info
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: ${LOKI_URL}/loki/api/v1/push
+
+scrape_configs:
+  # HTTP endpoint to receive logs from Railway log drains
+  - job_name: railway_logs
+    loki_push_api:
+      server:
+        http_listen_port: 9080
+      labels:
+        source: railway
+    relabel_configs:
+      - source_labels: ['__meta_loki_push_api']
+        target_label: 'job'
+        replacement: 'railway'

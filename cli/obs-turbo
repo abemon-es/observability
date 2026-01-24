@@ -8,9 +8,9 @@ set -eo pipefail
 CONFIG_FILE="${HOME}/.obs_credentials.json"
 GRAFANA_TOKEN=""
 UPTIME_KUMA_TOKEN=""
-LOKI_URL="${LOKI_URL:-https://logs.abemon.es}"
-UPTIME_KUMA_URL="${UPTIME_KUMA_URL:-https://status.abemon.es}"
-GRAFANA_URL="${GRAFANA_URL:-https://logs.abemon.es}"
+LOKI_URL=""
+UPTIME_KUMA_URL=""
+GRAFANA_URL=""
 
 # Colors
 RED='\033[0;31m'
@@ -37,46 +37,52 @@ load_credentials() {
     if [[ -f "$CONFIG_FILE" ]]; then
         GRAFANA_TOKEN=$(jq -r '.grafana_token // empty' "$CONFIG_FILE" 2>/dev/null || echo "")
         UPTIME_KUMA_TOKEN=$(jq -r '.uptime_kuma_token // empty' "$CONFIG_FILE" 2>/dev/null || echo "")
+        LOKI_URL=$(jq -r '.loki_url // empty' "$CONFIG_FILE" 2>/dev/null || echo "")
+        UPTIME_KUMA_URL=$(jq -r '.uptime_kuma_url // empty' "$CONFIG_FILE" 2>/dev/null || echo "")
+        GRAFANA_URL=$(jq -r '.grafana_url // empty' "$CONFIG_FILE" 2>/dev/null || echo "")
     fi
+
+    # Set defaults if not configured
+    LOKI_URL="${LOKI_URL:-https://logs.abemon.es}"
+    UPTIME_KUMA_URL="${UPTIME_KUMA_URL:-https://status.abemon.es}"
+    GRAFANA_URL="${GRAFANA_URL:-https://logs.abemon.es}"
 }
 
 # Print usage
 usage() {
-    cat << EOF
-${BLUE}obs-turbo${NC} - Unified observability CLI for abemon.es
-
-${YELLOW}USAGE:${NC}
-    obs-turbo <command> [service] [options]
-
-${YELLOW}COMMANDS:${NC}
-    ${GREEN}logs${NC} <service>     Query logs from Loki
-    ${GREEN}tail${NC} <service>     Stream logs in real-time
-    ${GREEN}status${NC} [service]   Check service status from Uptime Kuma
-    ${GREEN}incidents${NC}          List current incidents
-    ${GREEN}metrics${NC} <service>  Show service metrics
-    ${GREEN}services${NC}           List all monitored services
-    ${GREEN}config${NC}             Show/edit configuration
-
-${YELLOW}SERVICES:${NC}
-    abemon, bm, codex, foodplan, blue-mountain, concursal, fundacion, logistics
-    Or use 'all' for all services
-
-${YELLOW}OPTIONS:${NC}
-    --last <duration>    Time range (e.g., 1h, 24h, 7d) [default: 1h]
-    --error              Only show errors
-    --grep <pattern>     Filter by pattern
-    --format <type>      Output format: text, json [default: text]
-    --limit <n>          Max number of results [default: 100]
-
-${YELLOW}EXAMPLES:${NC}
-    obs-turbo logs abemon --last 1h
-    obs-turbo logs abemon --error --last 24h
-    obs-turbo logs all --grep "500" --last 6h
-    obs-turbo tail abemon
-    obs-turbo status
-    obs-turbo incidents
-
-EOF
+    echo -e "${BLUE}obs-turbo${NC} - Unified observability CLI for abemon.es"
+    echo ""
+    echo -e "${YELLOW}USAGE:${NC}"
+    echo "    obs-turbo <command> [service] [options]"
+    echo ""
+    echo -e "${YELLOW}COMMANDS:${NC}"
+    echo -e "    ${GREEN}logs${NC} <service>     Query logs from Loki"
+    echo -e "    ${GREEN}tail${NC} <service>     Stream logs in real-time"
+    echo -e "    ${GREEN}status${NC} [service]   Check service status from Uptime Kuma"
+    echo -e "    ${GREEN}incidents${NC}          List current incidents"
+    echo -e "    ${GREEN}metrics${NC} <service>  Show service metrics"
+    echo -e "    ${GREEN}services${NC}           List all monitored services"
+    echo -e "    ${GREEN}config${NC}             Show/edit configuration"
+    echo ""
+    echo -e "${YELLOW}SERVICES:${NC}"
+    echo "    abemon, bm, codex, foodplan, blue-mountain, concursal, fundacion, logistics"
+    echo "    Or use 'all' for all services"
+    echo ""
+    echo -e "${YELLOW}OPTIONS:${NC}"
+    echo "    --last <duration>    Time range (e.g., 1h, 24h, 7d) [default: 1h]"
+    echo "    --error              Only show errors"
+    echo "    --grep <pattern>     Filter by pattern"
+    echo "    --format <type>      Output format: text, json [default: text]"
+    echo "    --limit <n>          Max number of results [default: 100]"
+    echo ""
+    echo -e "${YELLOW}EXAMPLES:${NC}"
+    echo "    obs-turbo logs abemon --last 1h"
+    echo "    obs-turbo logs abemon --error --last 24h"
+    echo "    obs-turbo logs all --grep \"500\" --last 6h"
+    echo "    obs-turbo tail abemon"
+    echo "    obs-turbo status"
+    echo "    obs-turbo incidents"
+    echo ""
 }
 
 # Resolve service name
@@ -93,6 +99,34 @@ resolve_service() {
 
 # Query logs using logcli
 cmd_logs() {
+    # Handle --help as first argument
+    if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+        echo -e "${BLUE}obs-turbo logs${NC} - Query logs from Loki"
+        echo ""
+        echo -e "${YELLOW}USAGE:${NC}"
+        echo "    obs-turbo logs <service> [options]"
+        echo ""
+        echo -e "${YELLOW}ARGUMENTS:${NC}"
+        echo "    <service>            Service name (abemon, bm, codex, etc.) or 'all'"
+        echo ""
+        echo -e "${YELLOW}OPTIONS:${NC}"
+        echo "    --last <duration>    Time range (e.g., 1h, 24h, 7d) [default: 1h]"
+        echo "    --error              Only show errors"
+        echo "    --grep <pattern>     Filter by pattern"
+        echo "    --format <type>      Output format: text, json [default: text]"
+        echo "    --limit <n>          Max number of results [default: 100]"
+        echo ""
+        echo -e "${YELLOW}EXAMPLES:${NC}"
+        echo "    obs-turbo logs abemon --last 1h"
+        echo "    obs-turbo logs abemon --error --last 24h"
+        echo "    obs-turbo logs all --grep \"500\" --last 6h"
+        echo ""
+        echo -e "${YELLOW}REQUIRES:${NC}"
+        echo "    logcli - Install with: brew install loki"
+        echo ""
+        return 0
+    fi
+
     local service="${1:-all}"
     shift || true
 
@@ -123,6 +157,11 @@ cmd_logs() {
             --limit)
                 limit="$2"
                 shift 2
+                ;;
+            -h|--help)
+                # Already handled above, but in case it appears after service name
+                cmd_logs --help
+                return 0
                 ;;
             *)
                 shift
@@ -222,13 +261,15 @@ cmd_status() {
     echo -e "${BLUE}Checking service status...${NC}"
     echo ""
 
-    # Use Uptime Kuma API
-    local api_url="$UPTIME_KUMA_URL/api/status-page/main"
+    # Use Uptime Kuma API - need two endpoints
+    local main_url="$UPTIME_KUMA_URL/api/status-page/main"
+    local heartbeat_url="$UPTIME_KUMA_URL/api/status-page/heartbeat/main"
 
     if command -v curl &> /dev/null; then
-        local response=$(curl -s "$api_url" 2>/dev/null || echo '{"error": "Failed to fetch"}')
+        local main_response=$(curl -s "$main_url" 2>/dev/null || echo '{"error": "Failed to fetch"}')
+        local heartbeat_response=$(curl -s "$heartbeat_url" 2>/dev/null || echo '{"heartbeatList": {}}')
 
-        if echo "$response" | jq -e '.error' &>/dev/null; then
+        if printf '%s' "$main_response" | jq -e '.error' &>/dev/null; then
             echo -e "${YELLOW}Unable to fetch from Uptime Kuma API${NC}"
             echo "Falling back to direct HTTP checks..."
             echo ""
@@ -246,7 +287,41 @@ cmd_status() {
                 fi
             done
         else
-            echo "$response" | jq -r '.publicGroupList[]?.monitorList[]? | "\(.name): \(.status)"' 2>/dev/null || echo "No monitors found"
+            # Parse monitors and heartbeats together (use printf to avoid escape sequence interpretation)
+            local monitors=$(printf '%s' "$main_response" | jq -r '.publicGroupList[]?.monitorList[]? | "\(.id)|\(.name)"' 2>/dev/null)
+
+            if [[ -z "$monitors" ]]; then
+                echo "No monitors found"
+                return 0
+            fi
+
+            # Display header
+            printf "%-25s %-10s %-10s\n" "SERVICE" "STATUS" "PING"
+            echo "-------------------------------------------"
+
+            # Process each monitor
+            while IFS='|' read -r monitor_id monitor_name; do
+                [[ -z "$monitor_id" ]] && continue
+
+                # Filter by service if specified
+                if [[ -n "$service" ]]; then
+                    local service_domain=$(resolve_service "$service")
+                    if [[ "$monitor_name" != *"$service"* && "$monitor_name" != *"$service_domain"* ]]; then
+                        continue
+                    fi
+                fi
+
+                # Get latest heartbeat for this monitor
+                local latest_heartbeat=$(printf '%s' "$heartbeat_response" | jq -r ".heartbeatList[\"$monitor_id\"][-1]" 2>/dev/null)
+                local monitor_status=$(printf '%s' "$latest_heartbeat" | jq -r '.status // 0' 2>/dev/null)
+                local ping_time=$(printf '%s' "$latest_heartbeat" | jq -r '.ping // "-"' 2>/dev/null)
+
+                if [[ "$monitor_status" == "1" ]]; then
+                    printf "${GREEN}%-25s${NC} ${GREEN}%-10s${NC} %s ms\n" "$monitor_name" "UP" "$ping_time"
+                else
+                    printf "${RED}%-25s${NC} ${RED}%-10s${NC} %s ms\n" "$monitor_name" "DOWN" "$ping_time"
+                fi
+            done <<< "$monitors"
         fi
     else
         echo -e "${RED}Error: curl not installed${NC}"
