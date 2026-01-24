@@ -31,12 +31,16 @@ scrape_configs:
       - targets: ['uptime-kuma:3001']
     metrics_path: /metrics
 
-  # Railway services - configured via service discovery or manually
-  # These will be added when Railway endpoints are known
-  # - job_name: 'railway-abemon'
-  #   static_configs:
-  #     - targets: ['abemon.es']
-  #   metrics_path: /metrics
+  # Railway Resource Metrics (CPU, Memory, Network)
+  - job_name: 'railway-metrics'
+    scrape_interval: 60s
+    static_configs:
+      - targets: ['railway-exporter:9090']
+    metric_relabel_configs:
+      # Keep only essential metrics to reduce storage
+      - source_labels: [__name__]
+        regex: 'railway_service_(cpu|memory|network).*'
+        action: keep
 
   # External blackbox probes (for HTTP checks)
   # - job_name: 'blackbox'

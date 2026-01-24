@@ -55,6 +55,23 @@ services:
       - prometheus-data:/prometheus
 
   # ============================================
+  # RAILWAY METRICS EXPORTER
+  # ============================================
+  railway-exporter:
+    image: ghcr.io/railwayapp/prometheus-exporter:latest
+    container_name: railway-exporter
+    restart: unless-stopped
+    ports:
+      - "9101:9090"
+    environment:
+      - RAILWAY_API_TOKEN=${RAILWAY_API_TOKEN}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
   # LOG COLLECTION
   # ============================================
   vector:
