@@ -2,12 +2,15 @@ apiVersion: 1
 
 templates:
   - orgId: 1
-    name: abemon-alert-template
+    name: abemon.title
     template: |
       {{ define "abemon.title" }}
       [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}
       {{ end }}
 
+  - orgId: 1
+    name: abemon.message
+    template: |
       {{ define "abemon.message" }}
       {{ if eq .Status "firing" }}🔴{{ else }}🟢{{ end }} **{{ .CommonLabels.alertname }}**
 
@@ -31,10 +34,16 @@ templates:
       *abemon.es Observability*
       {{ end }}
 
+  - orgId: 1
+    name: abemon.email.subject
+    template: |
       {{ define "abemon.email.subject" }}
       [abemon] {{ template "abemon.title" . }}
       {{ end }}
 
+  - orgId: 1
+    name: abemon.email.html
+    template: |
       {{ define "abemon.email.html" }}
       <!DOCTYPE html>
       <html>
@@ -82,10 +91,10 @@ templates:
               </div>
             </div>
             {{ end }}
-            <a href="{{ .ExternalURL }}" class="btn">View in Grafana →</a>
+            <a href="{{ .ExternalURL }}" class="btn">View in Grafana</a>
           </div>
           <div class="footer">
-            <p><a href="https://logs.abemon.es">Dashboard</a> · <a href="https://status.abemon.es">Status Page</a></p>
+            <p><a href="https://logs.abemon.es">Dashboard</a> | <a href="https://status.abemon.es">Status Page</a></p>
             <p>abemon.es Observability</p>
           </div>
         </div>
