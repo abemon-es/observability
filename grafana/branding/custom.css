@@ -1,59 +1,280 @@
 /* abemon.es Custom Theme for Grafana */
+/* Brand Colors:
+   - Primary Orange: #F25C1C
+   - Dark Text: #0B0B0D
+   - White Background: #FFFFFF
+   - Surface: #F7F7F7
+   - Border: #E5E7EB
+   - Muted Text: #6B7280
+*/
 
 :root {
-  --abemon-primary: #1a1a2e;
-  --abemon-secondary: #16213e;
-  --abemon-accent: #0f3460;
-  --abemon-highlight: #e94560;
-  --abemon-text: #ffffff;
-  --abemon-text-muted: #a0a0a0;
+  --abemon-primary: #F25C1C;
+  --abemon-primary-hover: #D94E15;
+  --abemon-primary-light: #FF7A40;
+  --abemon-dark: #0B0B0D;
+  --abemon-white: #FFFFFF;
+  --abemon-surface: #F7F7F7;
+  --abemon-border: #E5E7EB;
+  --abemon-text-muted: #6B7280;
+  --abemon-success: #10B981;
+  --abemon-warning: #F59E0B;
+  --abemon-error: #EF4444;
 }
 
-/* Override Grafana primary colors */
-.css-1qw6xpw,
-.css-1n7hytq {
+/* ===== LOGIN PAGE ===== */
+.login-page,
+.login-content-box {
+  background: var(--abemon-white) !important;
+}
+
+.login-page .login-branding-logo {
+  max-width: 120px !important;
+}
+
+.login-page h1,
+.login-page .login-logo-title {
+  color: var(--abemon-dark) !important;
+  font-weight: 600 !important;
+}
+
+.login-page .login-button-group button,
+.login-page button[type="submit"] {
   background: var(--abemon-primary) !important;
+  border-color: var(--abemon-primary) !important;
+  color: var(--abemon-white) !important;
 }
 
-/* Sidebar */
-.main-view .sidemenu {
-  background: var(--abemon-secondary) !important;
+.login-page .login-button-group button:hover,
+.login-page button[type="submit"]:hover {
+  background: var(--abemon-primary-hover) !important;
+  border-color: var(--abemon-primary-hover) !important;
 }
 
-/* Top navbar */
-.navbar {
-  background: var(--abemon-primary) !important;
-  border-bottom: 1px solid var(--abemon-accent) !important;
+/* OAuth/Google Sign In Button */
+.login-page .social-login-btn,
+.login-page [class*="oauth"] button,
+.login-page .external-login-button {
+  border: 1px solid var(--abemon-border) !important;
+  background: var(--abemon-surface) !important;
+  color: var(--abemon-dark) !important;
 }
 
-/* Buttons */
+.login-page .social-login-btn:hover,
+.login-page [class*="oauth"] button:hover,
+.login-page .external-login-button:hover {
+  background: var(--abemon-white) !important;
+  border-color: var(--abemon-primary) !important;
+}
+
+/* ===== PRIMARY BUTTONS ===== */
 button.btn-primary,
-.btn-primary {
-  background: var(--abemon-highlight) !important;
-  border-color: var(--abemon-highlight) !important;
+.btn-primary,
+[class*="Button"][class*="primary"],
+button[class*="primary"] {
+  background: var(--abemon-primary) !important;
+  border-color: var(--abemon-primary) !important;
+  color: var(--abemon-white) !important;
 }
 
 button.btn-primary:hover,
-.btn-primary:hover {
-  background: #d63c55 !important;
-  border-color: #d63c55 !important;
+.btn-primary:hover,
+[class*="Button"][class*="primary"]:hover,
+button[class*="primary"]:hover {
+  background: var(--abemon-primary-hover) !important;
+  border-color: var(--abemon-primary-hover) !important;
 }
 
-/* Links */
+/* ===== LINKS ===== */
 a {
-  color: var(--abemon-highlight);
+  color: var(--abemon-primary) !important;
 }
 
 a:hover {
-  color: #ff6b7a;
+  color: var(--abemon-primary-light) !important;
 }
 
-/* Panel headers */
-.panel-title-container {
-  background: var(--abemon-secondary) !important;
+/* ===== SIDEBAR / NAVIGATION ===== */
+.sidemenu,
+[class*="sidemenu"],
+nav[class*="Menu"] {
+  background: var(--abemon-dark) !important;
 }
 
-/* Dashboard background */
-.dashboard-container {
+.sidemenu a:hover,
+[class*="sidemenu"] a:hover,
+nav[class*="Menu"] a:hover {
+  background: rgba(242, 92, 28, 0.15) !important;
+}
+
+.sidemenu a.active,
+[class*="sidemenu"] a.active,
+nav[class*="Menu"] a[class*="active"] {
+  background: rgba(242, 92, 28, 0.25) !important;
+  border-left: 3px solid var(--abemon-primary) !important;
+}
+
+/* ===== TOP NAVBAR ===== */
+.navbar,
+[class*="navbar"],
+header[class*="TopNav"] {
+  background: var(--abemon-dark) !important;
+  border-bottom: 1px solid rgba(242, 92, 28, 0.3) !important;
+}
+
+/* ===== PANEL HEADERS ===== */
+.panel-title-container,
+[class*="PanelHeader"],
+.panel-header {
+  border-bottom: 2px solid var(--abemon-primary) !important;
+}
+
+/* ===== TABS ===== */
+[class*="Tab"][class*="active"],
+.tab-active,
+[role="tab"][aria-selected="true"] {
+  border-bottom-color: var(--abemon-primary) !important;
+  color: var(--abemon-primary) !important;
+}
+
+/* ===== FORM ELEMENTS ===== */
+input:focus,
+select:focus,
+textarea:focus,
+[class*="Input"]:focus {
+  border-color: var(--abemon-primary) !important;
+  box-shadow: 0 0 0 2px rgba(242, 92, 28, 0.2) !important;
+}
+
+/* Checkboxes and toggles */
+[class*="Switch"][class*="on"],
+[class*="Toggle"][class*="active"],
+input[type="checkbox"]:checked + label::before,
+input[type="checkbox"]:checked + span {
   background: var(--abemon-primary) !important;
+  border-color: var(--abemon-primary) !important;
+}
+
+/* ===== ALERTS AND NOTIFICATIONS ===== */
+[class*="alert-success"],
+.alert-success {
+  border-left-color: var(--abemon-success) !important;
+}
+
+[class*="alert-warning"],
+.alert-warning {
+  border-left-color: var(--abemon-warning) !important;
+}
+
+[class*="alert-error"],
+[class*="alert-danger"],
+.alert-error,
+.alert-danger {
+  border-left-color: var(--abemon-error) !important;
+}
+
+/* ===== BADGES AND TAGS ===== */
+.badge-primary,
+[class*="Badge"][class*="primary"] {
+  background: var(--abemon-primary) !important;
+  color: var(--abemon-white) !important;
+}
+
+/* ===== PROGRESS BARS ===== */
+[class*="ProgressBar"] > div,
+.progress-bar {
+  background: var(--abemon-primary) !important;
+}
+
+/* ===== SCROLLBAR (for dark theme) ===== */
+::-webkit-scrollbar-thumb {
+  background: var(--abemon-primary) !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--abemon-primary-hover) !important;
+}
+
+/* ===== SELECTION HIGHLIGHT ===== */
+::selection {
+  background: rgba(242, 92, 28, 0.3) !important;
+}
+
+/* ===== DROPDOWN MENUS ===== */
+[class*="Menu"][class*="item"]:hover,
+[class*="Dropdown"][class*="item"]:hover,
+.dropdown-item:hover {
+  background: rgba(242, 92, 28, 0.1) !important;
+}
+
+/* ===== DASHBOARD SPECIFIC ===== */
+/* Dashboard toolbar */
+.dashboard-toolbar,
+[class*="DashboardToolbar"] {
+  border-bottom: 1px solid var(--abemon-border) !important;
+}
+
+/* Time picker button */
+[class*="TimePicker"] button,
+.time-picker button {
+  border-color: var(--abemon-border) !important;
+}
+
+[class*="TimePicker"] button:hover,
+.time-picker button:hover {
+  border-color: var(--abemon-primary) !important;
+}
+
+/* Refresh button */
+[class*="RefreshPicker"] button[class*="active"],
+.refresh-picker button.active {
+  color: var(--abemon-primary) !important;
+}
+
+/* ===== GRAPH COLORS OVERRIDE ===== */
+/* This ensures the primary orange is used in graphs where appropriate */
+.flot-text {
+  color: var(--abemon-text-muted) !important;
+}
+
+/* ===== EXPLORE PAGE ===== */
+.explore-toolbar,
+[class*="ExploreToolbar"] {
+  background: var(--abemon-dark) !important;
+}
+
+/* Query editor run button */
+[class*="RunButton"],
+.run-button {
+  background: var(--abemon-primary) !important;
+  border-color: var(--abemon-primary) !important;
+}
+
+[class*="RunButton"]:hover,
+.run-button:hover {
+  background: var(--abemon-primary-hover) !important;
+}
+
+/* ===== ALERTING ===== */
+[class*="AlertState"][class*="Alerting"],
+.alert-state-alerting {
+  color: var(--abemon-error) !important;
+}
+
+[class*="AlertState"][class*="OK"],
+.alert-state-ok {
+  color: var(--abemon-success) !important;
+}
+
+/* ===== FOOTER ===== */
+footer,
+.footer,
+[class*="Footer"] {
+  border-top: 1px solid var(--abemon-border) !important;
+}
+
+/* Hide Grafana branding in footer if desired */
+footer a[href*="grafana.com"],
+.footer a[href*="grafana.com"] {
+  opacity: 0.5;
 }
