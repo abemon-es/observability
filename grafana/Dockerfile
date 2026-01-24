@@ -20,7 +20,8 @@ RUN sed -i 's|</head>|<link rel="stylesheet" href="/public/css/custom.css" /></h
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-USER grafana
+# Keep as root so we can reset password
+# /run.sh will drop privileges properly
 
 EXPOSE 3000
 
