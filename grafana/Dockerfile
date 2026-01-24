@@ -16,6 +16,12 @@ COPY branding/custom.css /usr/share/grafana/public/css/custom.css
 # Inject custom CSS into Grafana's index.html
 RUN sed -i 's|</head>|<link rel="stylesheet" href="/public/css/custom.css" /></head>|' /usr/share/grafana/public/views/index.html || true
 
+# Copy entrypoint script that resets admin password
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 USER grafana
 
 EXPOSE 3000
+
+ENTRYPOINT ["/entrypoint.sh"]
