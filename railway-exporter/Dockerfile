@@ -1,7 +1,18 @@
-FROM ghcr.io/railwayapp/prometheus-exporter:latest
+FROM python:3.11-slim
 
-# The exporter listens on port 9090 by default
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application
+COPY main.py .
+
+# Default port
+ENV PORT=9090
+ENV SCRAPE_INTERVAL=60
+
 EXPOSE 9090
 
-# RAILWAY_API_TOKEN must be set as environment variable
-ENV RAILWAY_API_TOKEN=""
+CMD ["python", "main.py"]
