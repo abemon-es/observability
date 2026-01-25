@@ -7,4 +7,28 @@ templates:
 
   - orgId: 1
     name: abemon.message
-    template: '{{ if eq .Status "firing" }}🔴{{ else }}🟢{{ end }} {{ .CommonLabels.alertname }} | Severity: {{ if .CommonLabels.severity }}{{ .CommonLabels.severity }}{{ else }}unknown{{ end }}'
+    template: |
+      {{ if eq .Status "firing" }}🔴{{ else }}🟢{{ end }} **{{ .CommonLabels.alertname }}**
+
+      **Status:** {{ .Status | title }}
+      **Severity:** {{ if .CommonLabels.severity }}{{ .CommonLabels.severity }}{{ else }}unknown{{ end }}
+      {{ if .CommonLabels.project }}**Project:** {{ .CommonLabels.project }}{{ end }}
+
+      {{ range .Alerts }}
+      ---
+      {{ .Annotations.summary }}
+      {{ if .Annotations.description }}
+      {{ .Annotations.description }}
+      {{ end }}
+      **Started:** {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}
+      {{ if .EndsAt }}**Ended:** {{ .EndsAt.Format "2006-01-02 15:04:05 MST" }}{{ end }}
+      {{ end }}
+
+      ---
+      [View in Grafana]({{ .ExternalURL }}) | [Status Page](https://status.abemon.es)
+
+      *abemon.es Observability*
+
+  - orgId: 1
+    name: abemon.email.subject
+    template: '[abemon] [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
