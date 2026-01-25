@@ -7,4 +7,4 @@ templates:
 
   - orgId: 1
     name: abemon.message
-    template: '{{ if eq .Status "firing" }}FIRING{{ else }}RESOLVED{{ end }} - {{ .CommonLabels.alertname }}'
+    template: '{{ if eq .Status "firing" }}🔴{{ else }}🟢{{ end }} {{ .CommonLabels.alertname }} | Severity: {{ .CommonLabels.severity | default "unknown" }}'
