@@ -1,5 +1,17 @@
 apiVersion: 1
 
+deleteRules:
+  - orgId: 1
+    uid: cpu-high-warning
+  - orgId: 1
+    uid: cpu-critical
+  - orgId: 1
+    uid: memory-high-warning
+  - orgId: 1
+    uid: memory-critical
+  - orgId: 1
+    uid: network-high
+
 groups:
   - orgId: 1
     name: Error Detection

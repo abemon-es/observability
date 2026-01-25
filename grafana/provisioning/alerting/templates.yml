@@ -32,3 +32,28 @@ templates:
   - orgId: 1
     name: abemon.email.subject
     template: '[abemon] [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+
+  - orgId: 1
+    name: abemon.email.html
+    template: |
+      <!DOCTYPE html>
+      <html>
+      <head><style>body{font-family:Arial,sans-serif;margin:20px;}.status-firing{color:#d63031;}.status-resolved{color:#00b894;}</style></head>
+      <body>
+      <h2 class="status-{{ .Status }}">{{ if eq .Status "firing" }}ALERT{{ else }}RESOLVED{{ end }}: {{ .CommonLabels.alertname }}</h2>
+      <p><strong>Status:</strong> {{ .Status | title }}</p>
+      {{ if .CommonLabels.severity }}<p><strong>Severity:</strong> {{ .CommonLabels.severity }}</p>{{ end }}
+      {{ if .CommonLabels.project }}<p><strong>Project:</strong> {{ .CommonLabels.project }}</p>{{ end }}
+      <hr/>
+      {{ range .Alerts }}
+      <div style="margin:10px 0;padding:10px;background:#f5f5f5;border-radius:4px;">
+      <p>{{ .Annotations.summary }}</p>
+      {{ if .Annotations.description }}<p style="color:#666;">{{ .Annotations.description }}</p>{{ end }}
+      <p><small>Started: {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}</small></p>
+      </div>
+      {{ end }}
+      <hr/>
+      <p><a href="{{ .ExternalURL }}">View in Grafana</a></p>
+      <p style="color:#999;font-size:12px;">abemon.es Observability</p>
+      </body>
+      </html>
