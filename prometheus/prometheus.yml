@@ -15,33 +15,23 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Grafana metrics
-  - job_name: 'grafana'
-    static_configs:
-      - targets: ['grafana:3000']
-
-  # Loki metrics
-  - job_name: 'loki'
-    static_configs:
-      - targets: ['loki:3100']
-
-  # Uptime Kuma metrics
-  - job_name: 'uptime-kuma'
-    static_configs:
-      - targets: ['uptime-kuma:3001']
-    metrics_path: /metrics
-
-  # Railway Resource Metrics (CPU, Memory, Network)
+  # Railway Resource Metrics (CPU, Memory, Network) from custom exporter
   - job_name: 'railway-metrics'
     scrape_interval: 60s
+    scrape_timeout: 30s
     static_configs:
-      # Use Railway internal DNS for the exporter
       - targets: ['railway-exporter.railway.internal:9090']
     metric_relabel_configs:
-      # Keep only essential metrics to reduce storage
       - source_labels: [__name__]
-        regex: 'railway_service_(cpu|memory|network).*'
+        regex: 'railway_(service|exporter).*'
         action: keep
+
+  # Grafana metrics (optional - uses Railway internal DNS)
+  - job_name: 'grafana'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['grafana.railway.internal:3000']
+    metrics_path: /metrics
 
   # External blackbox probes (for HTTP checks)
   # - job_name: 'blackbox'
