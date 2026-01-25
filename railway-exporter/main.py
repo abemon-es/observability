@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Railway Prometheus Exporter
+Railway Prometheus Exporter v1.2.0
 Queries Railway GraphQL API and exposes metrics for Prometheus.
+Updated: 2026-01-25 - Fixed GraphQL schema compatibility
 """
 
 import os
@@ -224,7 +225,7 @@ def main():
     print(f"Monitoring {len(PROJECTS)} projects")
 
     exporter_info.info({
-        'version': '1.1.0',
+        'version': '1.2.0',
         'scrape_interval': str(SCRAPE_INTERVAL),
         'projects_count': str(len(PROJECTS))
     })
