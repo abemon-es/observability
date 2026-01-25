@@ -4,11 +4,14 @@ templates:
   - orgId: 1
     name: abemon.title
     template: |
+      {{ define "abemon.title" -}}
       [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}
+      {{- end }}
 
   - orgId: 1
     name: abemon.message
     template: |
+      {{ define "abemon.message" -}}
       {{ if eq .Status "firing" }}🔴{{ else }}🟢{{ end }} **{{ .CommonLabels.alertname }}**
 
       **Status:** {{ .Status | title }}
@@ -29,15 +32,19 @@ templates:
       [View in Grafana]({{ .ExternalURL }}) | [Status Page](https://status.abemon.es)
 
       *abemon.es Observability*
+      {{- end }}
 
   - orgId: 1
     name: abemon.email.subject
     template: |
-      [abemon] {{ template "abemon.title" . }}
+      {{ define "abemon.email.subject" -}}
+      [abemon] [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}
+      {{- end }}
 
   - orgId: 1
     name: abemon.email.html
     template: |
+      {{ define "abemon.email.html" -}}
       <!DOCTYPE html>
       <html>
       <head>
@@ -68,13 +75,21 @@ templates:
             <img src="https://media.abemon.es/wp-content/uploads/2026/01/icon-512.png" alt="abemon">
             <h1>abemon Observability</h1>
           </div>
-          <div class="status-bar {{ if eq .Status "firing" }}status-firing{{ else }}status-resolved{{ end }}">
-            {{ if eq .Status "firing" }}🔴 ALERT FIRING{{ else }}🟢 ALERT RESOLVED{{ end }}
-          </div>
+          {{ if eq .Status "firing" }}
+          <div class="status-bar status-firing">🔴 ALERT FIRING</div>
+          {{ else }}
+          <div class="status-bar status-resolved">🟢 ALERT RESOLVED</div>
+          {{ end }}
           <div class="content">
             <h2 style="margin-top:0;">{{ .CommonLabels.alertname }}</h2>
             {{ range .Alerts }}
-            <div class="alert-box {{ .Labels.severity }}">
+            {{ if eq .Labels.severity "critical" }}
+            <div class="alert-box critical">
+            {{ else if eq .Labels.severity "warning" }}
+            <div class="alert-box warning">
+            {{ else }}
+            <div class="alert-box">
+            {{ end }}
               <p style="margin:0 0 10px 0;"><strong>{{ .Annotations.summary }}</strong></p>
               {{ if .Annotations.description }}<p style="margin:0; color:#666;">{{ .Annotations.description }}</p>{{ end }}
               <div class="meta">
@@ -93,3 +108,4 @@ templates:
         </div>
       </body>
       </html>
+      {{- end }}
