@@ -101,26 +101,29 @@ def get_services(env_id):
 
 
 def get_metrics(service_id, env_id):
-    """Get metrics for a service."""
-    # Try to get usage metrics
-    query = '''query($serviceId: String!, $envId: String!) {
-        service(id: $serviceId) {
-            id
-            name
-        }
-        resourceUsage: metrics(
+    """Get metrics for a service using Railway's GraphQL API."""
+    start_date = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 300))
+
+    query = '''query($serviceId: String!, $envId: String!, $startDate: DateTime!) {
+        metrics(
             serviceId: $serviceId
             environmentId: $envId
             measurements: [CPU_USAGE, MEMORY_USAGE_GB, NETWORK_RX_GB, NETWORK_TX_GB]
-            startDate: "%s"
-            sampleRateSeconds: 60
+            startDate: $startDate
         ) {
-            measurements
-            values
+            measurement
+            values {
+                ts
+                value
+            }
         }
-    }''' % time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 300))
+    }'''
 
-    data = graphql_request(query, {"serviceId": service_id, "envId": env_id})
+    data = graphql_request(query, {
+        "serviceId": service_id,
+        "envId": env_id,
+        "startDate": start_date
+    })
 
     metrics = {
         "cpu_usage": 0,
@@ -133,24 +136,23 @@ def get_metrics(service_id, env_id):
         return metrics
 
     try:
-        resource_data = data.get("resourceUsage", [])
-        if isinstance(resource_data, list):
-            for item in resource_data:
-                measurements = item.get("measurements", [])
-                values = item.get("values", [])
+        metrics_data = data.get("metrics", [])
+        for item in metrics_data:
+            measurement = item.get("measurement", "")
+            values = item.get("values", [])
 
-                for i, m in enumerate(measurements):
-                    if values and len(values) > i and values[i]:
-                        # Get latest value
-                        val = values[i][-1] if isinstance(values[i], list) else values[i]
-                        if m == "CPU_USAGE":
-                            metrics["cpu_usage"] = float(val) if val else 0
-                        elif m == "MEMORY_USAGE_GB":
-                            metrics["memory_usage_gb"] = float(val) if val else 0
-                        elif m == "NETWORK_RX_GB":
-                            metrics["network_rx_gb"] = float(val) if val else 0
-                        elif m == "NETWORK_TX_GB":
-                            metrics["network_tx_gb"] = float(val) if val else 0
+            # Get the latest value (last in the list)
+            if values:
+                latest_value = values[-1].get("value", 0)
+
+                if measurement == "CPU_USAGE":
+                    metrics["cpu_usage"] = float(latest_value) if latest_value else 0
+                elif measurement == "MEMORY_USAGE_GB":
+                    metrics["memory_usage_gb"] = float(latest_value) if latest_value else 0
+                elif measurement == "NETWORK_RX_GB":
+                    metrics["network_rx_gb"] = float(latest_value) if latest_value else 0
+                elif measurement == "NETWORK_TX_GB":
+                    metrics["network_tx_gb"] = float(latest_value) if latest_value else 0
     except Exception as e:
         print(f"Error parsing metrics for {service_id}: {e}")
 
