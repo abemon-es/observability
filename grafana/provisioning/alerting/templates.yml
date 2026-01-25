@@ -4,14 +4,11 @@ templates:
   - orgId: 1
     name: abemon.title
     template: |
-      {{ define "abemon.title" }}
       [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}
-      {{ end }}
 
   - orgId: 1
     name: abemon.message
     template: |
-      {{ define "abemon.message" }}
       {{ if eq .Status "firing" }}🔴{{ else }}🟢{{ end }} **{{ .CommonLabels.alertname }}**
 
       **Status:** {{ .Status | title }}
@@ -32,19 +29,15 @@ templates:
       [View in Grafana]({{ .ExternalURL }}) | [Status Page](https://status.abemon.es)
 
       *abemon.es Observability*
-      {{ end }}
 
   - orgId: 1
     name: abemon.email.subject
     template: |
-      {{ define "abemon.email.subject" }}
       [abemon] {{ template "abemon.title" . }}
-      {{ end }}
 
   - orgId: 1
     name: abemon.email.html
     template: |
-      {{ define "abemon.email.html" }}
       <!DOCTYPE html>
       <html>
       <head>
@@ -100,4 +93,3 @@ templates:
         </div>
       </body>
       </html>
-      {{ end }}
