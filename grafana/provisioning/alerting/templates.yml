@@ -6,5 +6,6 @@ templates:
     template: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
 
   - orgId: 1
-    name: abemon.email.subject
-    template: '[abemon] [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+    name: abemon.message
+    template: >-
+      {{ .CommonLabels.alertname }} - {{ .Status }}
