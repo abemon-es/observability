@@ -1,17 +1,5 @@
 apiVersion: 1
 
-deleteRules:
-  - orgId: 1
-    uid: cpu-high-warning
-  - orgId: 1
-    uid: cpu-critical
-  - orgId: 1
-    uid: memory-high-warning
-  - orgId: 1
-    uid: memory-critical
-  - orgId: 1
-    uid: network-high
-
 groups:
   - orgId: 1
     name: Error Detection
@@ -295,3 +283,204 @@ groups:
         annotations:
           summary: "Deployment failure detected"
           description: "A service deployment may have failed"
+
+  # Resource Metrics alerts using Prometheus data from railway-exporter
+  - orgId: 1
+    name: Resource Metrics
+    folder: Alerting
+    interval: 1m
+    rules:
+      # CPU High Usage Warning (70%)
+      - uid: cpu-high-warning
+        title: CPU Usage High (Warning)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'railway_service_cpu_utilization > 0.7'
+              instant: true
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.service_name }}"
+          description: "CPU utilization above 70% for {{ $labels.service_name }} in {{ $labels.project_name }}"
+
+      # CPU Critical (90%)
+      - uid: cpu-critical
+        title: CPU Usage Critical
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'railway_service_cpu_utilization > 0.9'
+              instant: true
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical CPU usage on {{ $labels.service_name }}"
+          description: "CPU utilization above 90% - service may be overloaded"
+
+      # Memory High Warning (80%)
+      - uid: memory-high-warning
+        title: Memory Usage High (Warning)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'railway_service_memory_utilization > 0.8'
+              instant: true
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.service_name }}"
+          description: "Memory utilization above 80% for {{ $labels.service_name }}"
+
+      # Memory Critical (95%)
+      - uid: memory-critical
+        title: Memory Usage Critical
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'railway_service_memory_utilization > 0.95'
+              instant: true
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical memory usage on {{ $labels.service_name }}"
+          description: "Memory utilization above 95% - risk of OOM"
+
+      # Service Down (not reporting metrics)
+      - uid: service-down
+        title: Service Not Reporting Metrics
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'railway_service_up == 0'
+              instant: true
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.service_name }} is down"
+          description: "Service not running in project {{ $labels.project_name }}"

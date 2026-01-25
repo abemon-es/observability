@@ -29,6 +29,12 @@ const SSL_MONITORS = [
   { name: "bm.consulting SSL", url: "https://bm.consulting" },
   { name: "foodplan.pro SSL", url: "https://foodplan.pro" },
   { name: "blue-mountain.es SSL", url: "https://blue-mountain.es" },
+  { name: "codex.abemon.es SSL", url: "https://codex.abemon.es" },
+  { name: "logisticsexpress.es SSL", url: "https://logisticsexpress.es" },
+  { name: "concursal.consulting SSL", url: "https://concursal.consulting" },
+  { name: "status.abemon.es SSL", url: "https://status.abemon.es" },
+  { name: "logs.abemon.es SSL", url: "https://logs.abemon.es" },
+  { name: "pricing.logisticsexpress.es SSL", url: "https://pricing.logisticsexpress.es" },
 ];
 
 // DNS monitors - Check A record resolution
@@ -36,6 +42,21 @@ const DNS_MONITORS = [
   { name: "abemon.es DNS", hostname: "abemon.es" },
   { name: "bm.consulting DNS", hostname: "bm.consulting" },
   { name: "foodplan.pro DNS", hostname: "foodplan.pro" },
+  { name: "codex.abemon.es DNS", hostname: "codex.abemon.es" },
+  { name: "logisticsexpress.es DNS", hostname: "logisticsexpress.es" },
+  { name: "blue-mountain.es DNS", hostname: "blue-mountain.es" },
+];
+
+// HTTP Health monitors - Check service availability
+const HTTP_MONITORS = [
+  { name: "abemon.es", url: "https://abemon.es", group: "WordPress Sites" },
+  { name: "bm.consulting", url: "https://bm.consulting", group: "WordPress Sites" },
+  { name: "codex.abemon.es", url: "https://codex.abemon.es", group: "WordPress Sites" },
+  { name: "blue-mountain.es", url: "https://blue-mountain.es", group: "WordPress Sites" },
+  { name: "foodplan.pro", url: "https://foodplan.pro", group: "Apps" },
+  { name: "api-pricing", url: "https://pricing.logisticsexpress.es/api/v1/territories", group: "APIs" },
+  { name: "Grafana", url: "https://logs.abemon.es/api/health", group: "Observability" },
+  { name: "Loki", url: "https://loki-production-f8e1.up.railway.app/ready", group: "Observability" },
 ];
 
 function createSocket() {
@@ -168,6 +189,44 @@ async function addDNSMonitors(socket) {
   return { added, skipped };
 }
 
+async function addHTTPMonitors(socket) {
+  console.log("\n--- Adding HTTP Health Monitors ---");
+  let added = 0;
+  let skipped = 0;
+
+  for (const http of HTTP_MONITORS) {
+    try {
+      const monitor = {
+        type: "http",
+        name: http.name,
+        url: http.url,
+        method: "GET",
+        interval: 60,                   // Check every minute
+        retryInterval: 30,
+        resendInterval: 0,
+        maxretries: 3,
+        timeout: 30,
+        expiryNotification: false,
+        ignoreTls: false,
+        accepted_statuscodes: ["200-299"],
+        notificationIDList: { [NOTIFICATION_ID]: true },
+        active: true,
+      };
+
+      const response = await withTimeout(addMonitor(socket, monitor), 10000, http.name);
+      if (response.skipped) {
+        skipped++;
+      } else {
+        added++;
+      }
+    } catch (error) {
+      console.error(`[ERROR] ${http.name}: ${error.message}`);
+    }
+  }
+
+  return { added, skipped };
+}
+
 async function main() {
   console.log("Connecting to Uptime Kuma at", UPTIME_KUMA_URL);
 
@@ -189,10 +248,12 @@ async function main() {
       // Add all monitors
       const sslResult = await addSSLMonitors(socket);
       const dnsResult = await addDNSMonitors(socket);
+      const httpResult = await addHTTPMonitors(socket);
 
       console.log("\n=== Summary ===");
       console.log(`SSL monitors: ${sslResult.added} added, ${sslResult.skipped} skipped`);
       console.log(`DNS monitors: ${dnsResult.added} added, ${dnsResult.skipped} skipped`);
+      console.log(`HTTP monitors: ${httpResult.added} added, ${httpResult.skipped} skipped`);
       console.log(`Notification linked: ID ${NOTIFICATION_ID}`);
       console.log("\nMonitors should now appear on the status page.");
 
