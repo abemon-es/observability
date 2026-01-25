@@ -1,193 +1,307 @@
 {
-  "dashboard": {
-    "uid": "deployments",
-    "title": "Deployment Tracker",
-    "tags": ["deployments", "devops", "railway"],
-    "timezone": "browser",
-    "schemaVersion": 38,
-    "refresh": "1m",
-    "panels": [
-      {
-        "id": 1,
-        "type": "stat",
-        "title": "Deployments (24h)",
-        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "sum(count_over_time({project=~\".+\"} |~ \"(?i)(deploy|deployment|building|starting)\" [24h]))",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": { "mode": "thresholds" },
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "color": "blue", "value": null }
-              ]
-            }
-          }
-        },
-        "options": { "colorMode": "value", "graphMode": "area" }
+  "uid": "deployments",
+  "title": "Deployment Tracker",
+  "tags": [
+    "deployments",
+    "devops",
+    "railway"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Deployments (24h)",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
       },
-      {
-        "id": 2,
-        "type": "stat",
-        "title": "Deploy Failures (24h)",
-        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "sum(count_over_time({project=~\".+\"} |~ \"(?i)(deploy failed|deployment crashed|build failed|exit code 1)\" [24h]))",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": { "mode": "thresholds" },
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "color": "green", "value": null },
-                { "color": "red", "value": 1 }
-              ]
-            }
-          }
-        },
-        "options": { "colorMode": "value", "graphMode": "area" }
-      },
-      {
-        "id": 3,
-        "type": "stat",
-        "title": "Services Restarted (24h)",
-        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "sum(count_over_time({project=~\".+\"} |~ \"(?i)(restart|restarting|started|initializing)\" [24h]))",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": { "mode": "thresholds" },
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "color": "orange", "value": null }
-              ]
-            }
-          }
-        },
-        "options": { "colorMode": "value", "graphMode": "area" }
-      },
-      {
-        "id": 4,
-        "type": "stat",
-        "title": "OOM Kills (24h)",
-        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "sum(count_over_time({project=~\".+\"} |~ \"(?i)(OOM|out of memory|killed)\" [24h]))",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": { "mode": "thresholds" },
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "color": "green", "value": null },
-                { "color": "red", "value": 1 }
-              ]
-            }
-          }
-        },
-        "options": { "colorMode": "value", "graphMode": "area" }
-      },
-      {
-        "id": 5,
-        "type": "timeseries",
-        "title": "Deploy Activity by Project",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "sum by (project) (count_over_time({project=~\".+\"} |~ \"(?i)(deploy|building|starting)\" [1h]))",
-            "legendFormat": "{{project}}",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": { "mode": "palette-classic" },
-            "custom": { "lineWidth": 2, "fillOpacity": 20 }
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({project=~\".+\"} |~ \"(?i)(deploy|deployment|building|starting)\" [24h]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
           }
         }
       },
-      {
-        "id": 6,
-        "type": "timeseries",
-        "title": "Errors / Failures Over Time",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "sum(count_over_time({project=~\".+\"} |~ \"(?i)(failed|error|crashed)\" [15m]))",
-            "legendFormat": "Errors",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": { "fixedColor": "red", "mode": "fixed" },
-            "custom": { "lineWidth": 2, "fillOpacity": 30 }
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Deploy Failures (24h)",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({project=~\".+\"} |~ \"(?i)(deploy failed|deployment crashed|build failed|exit code 1)\" [24h]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
           }
         }
       },
-      {
-        "id": 7,
-        "type": "logs",
-        "title": "Recent Deployments",
-        "gridPos": { "h": 10, "w": 24, "x": 0, "y": 12 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "{project=~\".+\"} |~ \"(?i)(deploy|deployment|building|started|initializing|listening)\"",
-            "refId": "A"
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Services Restarted (24h)",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({project=~\".+\"} |~ \"(?i)(restart|restarting|started|initializing)\" [24h]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
           }
-        ],
-        "options": {
-          "showTime": true,
-          "showLabels": true,
-          "wrapLogMessage": true,
-          "enableLogDetails": true
         }
       },
-      {
-        "id": 8,
-        "type": "logs",
-        "title": "Deploy Failures & Crashes",
-        "gridPos": { "h": 10, "w": 24, "x": 0, "y": 22 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "{project=~\".+\"} |~ \"(?i)(deploy failed|crashed|exit code|OOM|killed|fatal)\"",
-            "refId": "A"
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "OOM Kills (24h)",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({project=~\".+\"} |~ \"(?i)(OOM|out of memory|killed)\" [24h]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
           }
-        ],
-        "options": {
-          "showTime": true,
-          "showLabels": true,
-          "wrapLogMessage": true,
-          "enableLogDetails": true
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Deploy Activity by Project",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (project) (count_over_time({project=~\".+\"} |~ \"(?i)(deploy|building|starting)\" [1h]))",
+          "legendFormat": "{{project}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20
+          }
         }
       }
-    ]
-  },
-  "overwrite": true
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Errors / Failures Over Time",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({project=~\".+\"} |~ \"(?i)(failed|error|crashed)\" [15m]))",
+          "legendFormat": "Errors",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "red",
+            "mode": "fixed"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 30
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "logs",
+      "title": "Recent Deployments",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{project=~\".+\"} |~ \"(?i)(deploy|deployment|building|started|initializing|listening)\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true
+      }
+    },
+    {
+      "id": 8,
+      "type": "logs",
+      "title": "Deploy Failures & Crashes",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{project=~\".+\"} |~ \"(?i)(deploy failed|crashed|exit code|OOM|killed|fatal)\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true
+      }
+    }
+  ]
 }

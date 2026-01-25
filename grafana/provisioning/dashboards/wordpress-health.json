@@ -1,213 +1,336 @@
 {
-  "dashboard": {
-    "uid": "wordpress-health",
-    "title": "WordPress Health",
-    "tags": ["wordpress", "health"],
-    "timezone": "browser",
-    "schemaVersion": 38,
-    "refresh": "30s",
-    "panels": [
-      {
-        "id": 1,
-        "type": "stat",
-        "title": "PHP Errors (24h)",
-        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "sum(count_over_time({project=~\"abemon.es|BM Consulting\"} |~ \"PHP\" [24h]))",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": { "mode": "thresholds" },
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "color": "green", "value": null },
-                { "color": "yellow", "value": 10 },
-                { "color": "red", "value": 50 }
-              ]
-            }
-          }
-        },
-        "options": { "colorMode": "value", "graphMode": "area" }
+  "uid": "wordpress-health",
+  "title": "WordPress Health",
+  "tags": [
+    "wordpress",
+    "health"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "PHP Errors (24h)",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
       },
-      {
-        "id": 2,
-        "type": "stat",
-        "title": "Fatal Errors (24h)",
-        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "sum(count_over_time({project=~\"abemon.es|BM Consulting\"} |~ \"PHP Fatal\" [24h]))",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": { "mode": "thresholds" },
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "color": "green", "value": null },
-                { "color": "red", "value": 1 }
-              ]
-            }
-          }
-        },
-        "options": { "colorMode": "value", "graphMode": "area" }
-      },
-      {
-        "id": 3,
-        "type": "stat",
-        "title": "Database Queries (1h)",
-        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "sum(count_over_time({service_name=\"MySQL\"} [1h]))",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": { "mode": "thresholds" },
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "color": "blue", "value": null }
-              ]
-            }
-          }
-        },
-        "options": { "colorMode": "value", "graphMode": "area" }
-      },
-      {
-        "id": 4,
-        "type": "stat",
-        "title": "Redis Operations (1h)",
-        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "sum(count_over_time({service_name=\"Redis\"} [1h]))",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": { "mode": "thresholds" },
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                { "color": "purple", "value": null }
-              ]
-            }
-          }
-        },
-        "options": { "colorMode": "value", "graphMode": "area" }
-      },
-      {
-        "id": 5,
-        "type": "timeseries",
-        "title": "PHP Errors Over Time",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "sum by (project) (count_over_time({project=~\"abemon.es|BM Consulting\"} |~ \"PHP\" [5m]))",
-            "legendFormat": "{{project}}",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": { "mode": "palette-classic" },
-            "custom": { "lineWidth": 2, "fillOpacity": 20 }
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({project=~\"abemon.es|BM Consulting\"} |~ \"PHP\" [24h]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
           }
         }
       },
-      {
-        "id": 6,
-        "type": "timeseries",
-        "title": "HTTP Requests",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "sum by (project) (count_over_time({project=~\"abemon.es|BM Consulting\"} |~ \"HTTP\" [5m]))",
-            "legendFormat": "{{project}}",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": { "mode": "palette-classic" },
-            "custom": { "lineWidth": 2, "fillOpacity": 20 }
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Fatal Errors (24h)",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({project=~\"abemon.es|BM Consulting\"} |~ \"PHP Fatal\" [24h]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
           }
         }
       },
-      {
-        "id": 7,
-        "type": "logs",
-        "title": "abemon.es PHP Errors",
-        "gridPos": { "h": 10, "w": 12, "x": 0, "y": 12 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "{project=\"abemon.es\"} |~ \"PHP\"",
-            "refId": "A"
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Database Queries (1h)",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({service_name=\"MySQL\"} [1h]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
           }
-        ],
-        "options": {
-          "showTime": true,
-          "showLabels": false,
-          "wrapLogMessage": true,
-          "enableLogDetails": true
         }
       },
-      {
-        "id": 8,
-        "type": "logs",
-        "title": "BM Consulting PHP Errors",
-        "gridPos": { "h": 10, "w": 12, "x": 12, "y": 12 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "{project=\"BM Consulting\"} |~ \"PHP\"",
-            "refId": "A"
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Redis Operations (1h)",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({service_name=\"Redis\"} [1h]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
           }
-        ],
-        "options": {
-          "showTime": true,
-          "showLabels": false,
-          "wrapLogMessage": true,
-          "enableLogDetails": true
         }
       },
-      {
-        "id": 9,
-        "type": "logs",
-        "title": "MySQL Slow Queries / Errors",
-        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
-        "targets": [
-          {
-            "datasource": { "type": "loki", "uid": "loki" },
-            "expr": "{service_name=\"MySQL\"} |~ \"(?i)(slow|error|warning|deadlock)\"",
-            "refId": "A"
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "PHP Errors Over Time",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (project) (count_over_time({project=~\"abemon.es|BM Consulting\"} |~ \"PHP\" [5m]))",
+          "legendFormat": "{{project}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20
           }
-        ],
-        "options": {
-          "showTime": true,
-          "showLabels": true,
-          "wrapLogMessage": true,
-          "enableLogDetails": true
         }
       }
-    ]
-  },
-  "overwrite": true
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "HTTP Requests",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (project) (count_over_time({project=~\"abemon.es|BM Consulting\"} |~ \"HTTP\" [5m]))",
+          "legendFormat": "{{project}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "logs",
+      "title": "abemon.es PHP Errors",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{project=\"abemon.es\"} |~ \"PHP\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "enableLogDetails": true
+      }
+    },
+    {
+      "id": 8,
+      "type": "logs",
+      "title": "BM Consulting PHP Errors",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{project=\"BM Consulting\"} |~ \"PHP\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "enableLogDetails": true
+      }
+    },
+    {
+      "id": 9,
+      "type": "logs",
+      "title": "MySQL Slow Queries / Errors",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{service_name=\"MySQL\"} |~ \"(?i)(slow|error|warning|deadlock)\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true
+      }
+    }
+  ]
 }
