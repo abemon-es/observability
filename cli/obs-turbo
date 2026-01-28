@@ -48,6 +48,7 @@ SERVICE_ALIASES = {
     "trafico": "trafico-dashboard",
     "app-logistics": "app.logisticsexpress.es",
     "z-logistics": "z.logisticsexpress.es",
+    "cifex": "CIFex",
 }
 
 

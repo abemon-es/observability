@@ -21,6 +21,7 @@ PROJECTS = [
     {"name": "app.logisticsexpress.es", "env": "ace99da7-959d-4d02-a258-d39259e869c0"},
     {"name": "trafico-dashboard", "env": "be69a746-d09a-4a4b-b9ca-3fd912718421"},
     {"name": "z.logisticsexpress.es", "env": "ccc1e76b-0bb9-450a-bc25-2209990a6449"},
+    {"name": "CIFex", "env": "3b8cc744-626c-47b1-b1c6-49b81089e606"},
 ]
 
 headers = {"Authorization": f"Bearer {RAILWAY_TOKEN}", "Content-Type": "application/json"}
