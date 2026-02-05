@@ -484,3 +484,165 @@ groups:
         annotations:
           summary: "Service {{ $labels.service_name }} is down"
           description: "Service not running in project {{ $labels.project_name }}"
+
+  # Asterisk Security Alerts
+  - orgId: 1
+    name: Asterisk Security
+    folder: Alerting
+    interval: 1m
+    rules:
+      # Brute Force Attack Detection
+      - uid: asterisk-brute-force
+        title: Asterisk Brute Force Attack
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({service_name="asterisk"} |~ "(?i)(auth.*fail|authentication.*failed|wrong.*password|invalid.*credentials)" [5m]))'
+              queryType: instant
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 10
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Possible brute force attack on Asterisk"
+          description: "More than 10 authentication failures in 5 minutes - potential SIP brute force attack"
+
+      # Invalid Auth Warning
+      - uid: asterisk-auth-warning
+        title: Asterisk Auth Failures
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({service_name="asterisk"} |~ "(?i)(SECURITY|Unauthorized|Invalid|Rejected)" [10m]))'
+              queryType: instant
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 5
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Security events detected on Asterisk"
+          description: "More than 5 security-related events in 10 minutes"
+
+      # Rate Limiting Active
+      - uid: asterisk-rate-limiting
+        title: Asterisk Rate Limiting Active
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({service_name="asterisk"} |~ "(?i)(rate.*limit|throttl|flood|hashlimit)" [5m]))'
+              queryType: instant
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rate limiting active on Asterisk"
+          description: "SIP traffic is being rate limited - possible flood attack"
+
+      # Unauthorized DID Attempts
+      - uid: asterisk-unauthorized-did
+        title: Unauthorized DID Access Attempt
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({service_name="asterisk"} |~ "Unauthorized DID" [5m]))'
+              queryType: instant
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+                  reducer:
+                    type: last
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unauthorized DID access attempt"
+          description: "Someone attempted to call using an unauthorized DID - possible toll fraud attempt"
